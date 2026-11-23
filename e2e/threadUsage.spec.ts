@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { loginWithPassword } from '@mindroom/e2e/auth';
 import { createRoom } from '@mindroom/e2e/createRoom';
 import {
@@ -52,11 +52,13 @@ const threadReply = (rootId: string, body: string, extra: Record<string, unknown
   ...extra,
 });
 
-const shot = async (page: Page, name: string) => {
+const shot = async (page: Page, name: string, target?: Locator) => {
   const dir = process.env.MRTU_SHOTS;
   if (!dir) return;
   mkdirSync(dir, { recursive: true });
-  await page.screenshot({ path: join(dir, `${name}.png`) });
+  const path = join(dir, `${name}.png`);
+  if (target) await target.screenshot({ path, animations: 'disabled' });
+  else await page.screenshot({ path, animations: 'disabled' });
 };
 
 const card = (page: Page, rootId: string) =>
@@ -64,6 +66,21 @@ const card = (page: Page, rootId: string) =>
 
 const usageStrip = (page: Page, rootId: string) =>
   card(page, rootId).locator('[data-compact-card-metadata] [data-thread-usage-card]');
+
+const expectStripInsideMetadata = async (page: Page, rootId: string) => {
+  const meta = card(page, rootId).locator('[data-compact-card-metadata]');
+  const strip = usageStrip(page, rootId);
+  await expect(strip).toBeVisible({ timeout: 30_000 });
+  const [metaBox, stripBox] = await Promise.all([meta.boundingBox(), strip.boundingBox()]);
+  expect(metaBox).not.toBeNull();
+  expect(stripBox).not.toBeNull();
+  expect(stripBox!.width).toBeGreaterThan(0);
+  expect(stripBox!.height).toBeGreaterThan(0);
+  expect(stripBox!.x).toBeGreaterThanOrEqual(metaBox!.x - 1);
+  expect(stripBox!.y).toBeGreaterThanOrEqual(metaBox!.y - 1);
+  expect(stripBox!.x + stripBox!.width).toBeLessThanOrEqual(metaBox!.x + metaBox!.width + 1);
+  expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(metaBox!.y + metaBox!.height + 1);
+};
 
 const openCompactRoom = async (page: Page, data: Seed) => {
   await loginWithPassword(page, { homeserver: HOMESERVER, ...data.person });
@@ -152,11 +169,22 @@ test.beforeAll(async () => {
       },
     })
   );
-  await sendRoomMessage(
+  // Seed the second reply using MindRoom's real streaming pattern: placeholder message without
+  // io.mindroom.ai_run followed by a final m.replace edit carrying io.mindroom.ai_run.
+  const streamedReplyId = await sendRoomMessage(
     HOMESERVER,
     agent.accessToken,
     roomId,
-    threadReply(devRoot, 'Implemented jittered retries with dead-letter tests passing.', {
+    threadReply(devRoot, 'Thinking...', { 'io.mindroom.stream_status': 'pending' })
+  );
+  await sendRoomMessage(HOMESERVER, agent.accessToken, roomId, {
+    msgtype: 'm.text',
+    body: '* Implemented jittered retries with dead-letter tests passing.',
+    'io.mindroom.stream_status': 'completed',
+    'm.new_content': {
+      msgtype: 'm.text',
+      body: 'Implemented jittered retries with dead-letter tests passing.',
+      'io.mindroom.stream_status': 'completed',
       'io.mindroom.ai_run': {
         version: 1,
         status: 'completed',
@@ -175,8 +203,9 @@ test.beforeAll(async () => {
           uncached_input_tokens: 32_000,
         },
       },
-    })
-  );
+    },
+    'm.relates_to': { rel_type: 'm.replace', event_id: streamedReplyId },
+  });
 
   seeded = { person, roomId, devRoot, warningRoot, plainRoot };
 });
@@ -212,13 +241,14 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   // Plain human-only thread shows no usage strip.
   await expect(card(page, data.plainRoot).locator('[data-thread-usage-card]')).toHaveCount(0);
 
+  const cardList = page.locator('[data-compact-room-view]');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme-kind', 'light');
-  await shot(page, 'desktop-light');
+  await shot(page, 'desktop-light', cardList);
 
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme-kind', 'dark');
-  await shot(page, 'desktop-dark');
+  await shot(page, 'desktop-dark', cardList);
 
   // Resting the pointer on the dev card opens the thread details hover card with full breakdown.
   const hoverDetails = page.locator('[data-thread-card-details] [data-thread-usage-details]');
@@ -232,6 +262,8 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
 
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme-kind', 'light');
+  await card(page, data.devRoot).hover();
+  await expect(hoverDetails).toBeVisible({ timeout: 10_000 });
   await shot(page, 'hover-light');
 
   // Clicking the non-interactive telemetry strip opens the thread directly.
@@ -248,17 +280,18 @@ test('keeps telemetry legible on a phone viewport in dark and light modes', asyn
   const page = await context.newPage();
   try {
     await openCompactRoom(page, data);
-    await expect(usageStrip(page, data.devRoot)).toBeVisible({ timeout: 30_000 });
-    await expect(usageStrip(page, data.warningRoot)).toBeVisible({ timeout: 30_000 });
+    await expectStripInsideMetadata(page, data.devRoot);
+    await expectStripInsideMetadata(page, data.warningRoot);
     await expect(card(page, data.plainRoot).locator('[data-thread-usage-card]')).toHaveCount(0);
 
+    const cardList = page.locator('[data-compact-room-view]');
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveAttribute('data-theme-kind', 'dark');
-    await shot(page, 'phone-dark');
+    await shot(page, 'phone-dark', cardList);
 
     await page.emulateMedia({ colorScheme: 'light' });
     await expect(page.locator('html')).toHaveAttribute('data-theme-kind', 'light');
-    await shot(page, 'phone-light');
+    await shot(page, 'phone-light', cardList);
   } finally {
     await context.close();
   }

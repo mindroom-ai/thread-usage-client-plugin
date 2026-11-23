@@ -15,6 +15,7 @@ import {
   formatCompactTokens,
   formatCostUsd,
   formatExactTokens,
+  formatModelLabel,
 } from './format';
 import { summarizeThreadUsage, threadHasUsage } from './threadUsage';
 
@@ -69,14 +70,37 @@ const makeEdit = (
   );
 
 describe('format helpers', () => {
-  it('formats USD costs matching MindRoom display rules', () => {
+  it('formats USD costs matching MindRoom display rules and floors lower bounds', () => {
     expect(formatCostUsd(0, 'en')).toBe('$0.00');
     expect(formatCostUsd(-1, 'en')).toBe('$0.00');
     expect(formatCostUsd(0.0035, 'en')).toBe('$0.0035');
     expect(formatCostUsd(0.042, 'en')).toBe('$0.042');
+    expect(formatCostUsd(0.0429, 'en')).toBe('$0.043');
     expect(formatCostUsd(0.08, 'en')).toBe('$0.08');
     expect(formatCostUsd(0.0999, 'en')).toBe('$0.10');
+    expect(formatCostUsd(1.236, 'en')).toBe('$1.24');
     expect(formatCostUsd(1.42, 'en')).toBe('$1.42');
+
+    // Lower bounds floor downward at displayed precision so counted spend is never overstated.
+    expect(formatCostUsd(1.236, 'en', { lowerBound: true })).toBe('$1.23');
+    expect(formatCostUsd(0.0429, 'en', { lowerBound: true })).toBe('$0.042');
+    expect(formatCostUsd(0.0999, 'en', { lowerBound: true })).toBe('$0.099');
+    expect(formatCostUsd(0.109, 'en', { lowerBound: true })).toBe('$0.10');
+    expect(formatCostUsd(0.29, 'en', { lowerBound: true })).toBe('$0.29');
+    expect(formatCostUsd(1.15, 'en', { lowerBound: true })).toBe('$1.15');
+  });
+
+  it('formats compact model labels matching getAiRunCompactModelLabel fallback order', () => {
+    expect(
+      formatModelLabel({ display_name: ' my Friendly Model ', config: 'opus', id: 'gpt-5.4', provider: 'openai' })
+    ).toBe('my Friendly Model');
+    expect(formatModelLabel({ config: 'bedtime_fable', id: 'claude-opus-4-6' })).toBe('Bedtime Fable');
+    expect(formatModelLabel({ config: 'default', id: 'anthropic/claude-sonnet-4-6' })).toBe('Sonnet 4.6');
+    expect(formatModelLabel({ config: 'auto', id: 'claude-opus-4-latest' })).toBe('Opus 4');
+    expect(formatModelLabel({ id: 'claude-sonnet-latest' })).toBe('Sonnet');
+    expect(formatModelLabel({ provider: 'openai', id: 'gpt-5.4' })).toBe('GPT-5.4');
+    expect(formatModelLabel({ provider: 'anthropic' })).toBe('Anthropic');
+    expect(formatModelLabel({})).toBeUndefined();
   });
 
   it('formats compact tokens and floors lower bounds at displayed precision', () => {
@@ -207,7 +231,7 @@ describe('summarizeThreadUsage', () => {
         'io.mindroom.ai_run': {
           version: 1,
           status: 'completed',
-          model: { id: 'openrouter/openai/gpt-6.2-astra' },
+          model: { config: 'default', provider: 'openai', id: 'gpt-6.2-astra' },
           cost: { usd: 0.2, subagents_usd: '0.09' },
           usage: {
             cache_read_tokens: 50_000,
@@ -225,7 +249,7 @@ describe('summarizeThreadUsage', () => {
         'io.mindroom.ai_run': {
           version: 1,
           status: 'completed',
-          model: { config: 'fast-local' },
+          model: { config: 'fast_local' },
           usage: { input_tokens: 4_000, output_tokens: 1_000 },
         },
       }),
@@ -254,18 +278,15 @@ describe('summarizeThreadUsage', () => {
     expect(summary?.totalTokens).toBe(215_000);
     expect(summary?.tokenReplyCount).toBe(3);
     // Most recently used first, deduplicated: Sonnet 5.5 was reused in $r4.
-    expect(summary?.models).toEqual(['Sonnet 5.5', 'fast-local', 'gpt-6.2-astra']);
+    expect(summary?.models).toEqual(['Sonnet 5.5', 'Fast Local', 'GPT-6.2-astra']);
     // Context from latest reply that carried valid context ($r2), clamped cleanly.
     expect(summary?.context).toEqual({
       inputTokens: 220_000,
       windowTokens: 200_000,
       percentage: 100,
       cacheReadTokens: 220_000,
-      uncachedTokens: 0,
     });
-    expect(summary?.historyComplete).toBe(true);
     expect(summary?.costComplete).toBe(true);
-    expect(summary?.complete).toBe(true);
     expect(summary?.tokensComplete).toBe(true);
     expect(threadHasUsage(room, '$root')).toBe(true);
   });
@@ -283,12 +304,37 @@ describe('summarizeThreadUsage', () => {
       ]);
       const summary = summarizeThreadUsage(room, '$root', VIEWER);
       expect(summary?.totalCostUsd).toBe(0.1);
-      expect(summary?.historyComplete).toBe(true);
       expect(summary?.tokensComplete).toBe(true);
       expect(summary?.costComplete).toBe(false);
-      expect(summary?.complete).toBe(false);
     }
   );
+
+  it('checks both aiRun.status and streamStatus against unknown-cost endings when contradictory', async () => {
+    const { room } = await createFixture([
+      makeEvent('$r1', AGENT, {
+        'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.12' } },
+      }),
+      makeEvent('$r2', AGENT, {
+        'io.mindroom.ai_run': { version: 1, status: 'completed' },
+        'io.mindroom.stream_status': 'interrupted',
+      }),
+    ]);
+    const summary = summarizeThreadUsage(room, '$root', VIEWER);
+    expect(summary?.totalCostUsd).toBe(0.12);
+    expect(summary?.tokensComplete).toBe(true);
+    expect(summary?.costComplete).toBe(false);
+
+    const { room: room2 } = await createFixture([
+      makeEvent('$r3', AGENT, {
+        'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.12' } },
+      }),
+      makeEvent('$r4', AGENT, {
+        'io.mindroom.ai_run': { version: 1, status: 'cancelled' },
+        'io.mindroom.stream_status': 'completed',
+      }),
+    ]);
+    expect(summarizeThreadUsage(room2, '$root', VIEWER)?.costComplete).toBe(false);
+  });
 
   it('walks linked older timelines and tracks partial vs complete history flags', async () => {
     const { room, thread, root } = await createFixture(
@@ -304,7 +350,7 @@ describe('summarizeThreadUsage', () => {
       ],
       { fetched: false }
     );
-    expect(summarizeThreadUsage(room, '$root', VIEWER)?.historyComplete).toBe(false);
+    expect(summarizeThreadUsage(room, '$root', VIEWER)?.tokensComplete).toBe(false);
 
     thread.initialEventsFetched = true;
     const ts = thread.getUnfilteredTimelineSet();
@@ -329,34 +375,35 @@ describe('summarizeThreadUsage', () => {
     const partial = summarizeThreadUsage(room, '$root', VIEWER);
     expect(partial?.totalCostUsd).toBe(0.75);
     expect(partial?.totalTokens).toBe(48_000);
-    expect(partial?.historyComplete).toBe(false);
+    expect(partial?.costComplete).toBe(false);
     expect(partial?.tokensComplete).toBe(false);
 
     older.setPaginationToken(null, Direction.Backward);
     const complete = summarizeThreadUsage(room, '$root', VIEWER);
-    expect(complete?.historyComplete).toBe(true);
     expect(complete?.costComplete).toBe(true);
     expect(complete?.tokensComplete).toBe(true);
   });
 
-  it('resolves latest readable same-sender m.replace edit and borrows ai_run metadata', async () => {
+  it('resolves latest readable same-sender m.replace edits with edit-only borrowing', async () => {
     const original = makeEvent(
       '$r1',
       AGENT,
-      {
-        'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.01' } },
-      },
+      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.01' } } },
       1_000
     );
     const original2 = makeEvent(
       '$r2',
       AGENT,
-      {
-        'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.04' } },
-      },
+      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.04' } } },
       1_500
     );
-    const { room, thread } = await createFixture([original, original2]);
+    const original3 = makeEvent(
+      '$r3',
+      AGENT,
+      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.05' } } },
+      1_600
+    );
+    const { room, thread } = await createFixture([original, original2, original3]);
 
     const olderAiEdit = makeEdit(
       '$e1',
@@ -389,13 +436,126 @@ describe('summarizeThreadUsage', () => {
     const rel = thread.timelineSet.relations;
     [olderAiEdit, newerTextOnlyEdit, spoofedEdit, redactedEdit].forEach((ev) => rel.aggregateChildEvent(ev));
 
-    // For $r2, apply a text-only replacingEvent directly on the event -> falls back to original content.
+    // For $r2, a readable same-sender text-only edit does NOT borrow ai_run from the original pre-edit message.
     const r2InThread = thread.findEventById('$r2')!;
-    const r2Edit = makeEdit('$e5', '$r2', AGENT, { body: 'edited r2' }, 3_500);
-    r2InThread.makeReplaced(r2Edit);
+    r2InThread.makeReplaced(makeEdit('$e5', '$r2', AGENT, { body: 'edited r2' }, 3_500));
+
+    // For $r3, an undecryptable edit leaves no readable edits -> falls back to original pre-edit content.
+    const r3InThread = thread.findEventById('$r3')!;
+    const undecryptable = new MatrixEvent({
+      type: EventType.RoomMessageEncrypted,
+      event_id: '$e6',
+      room_id: ROOM_ID,
+      sender: AGENT,
+      origin_server_ts: 3_600,
+      content: { ciphertext: 'bad', 'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r3' } },
+    });
+    r3InThread.makeReplaced(undecryptable);
 
     const summary = summarizeThreadUsage(room, '$root', VIEWER);
-    expect(summary?.totalCostUsd).toBe(0.44);
+    expect(summary?.totalCostUsd).toBe(0.45);
+    expect(summary?.pricedReplyCount).toBe(2);
+    expect(summary?.models).toEqual(['Opus 5.5']);
+  });
+
+  it('resolves bundled unsigned m.replace edits over stale SDK edits and enforces sender + ts checks', async () => {
+    const target = makeEvent('$r1', AGENT, { body: 'Thinking...' }, 1_000);
+    const spoofedTarget = makeEvent(
+      '$r2',
+      AGENT,
+      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.10' } } },
+      1_100
+    );
+    const missingTsTarget = makeEvent(
+      '$r3',
+      AGENT,
+      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.05' } } },
+      1_200
+    );
+    const { room, thread } = await createFixture([target, spoofedTarget, missingTsTarget]);
+
+    // Stale SDK edit (ts 2_000) beaten by newer bundled replacement (ts 4_000).
+    const r1 = thread.findEventById('$r1')!;
+    r1.makeReplaced(
+      makeEdit(
+        '$sdk-stale',
+        '$r1',
+        AGENT,
+        { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.11' }, model: { display_name: 'Stale' } } },
+        2_000
+      )
+    );
+    r1.event.unsigned = {
+      'm.relations': {
+        'm.replace': {
+          type: EventType.RoomMessage,
+          event_id: '$bundled-latest',
+          room_id: ROOM_ID,
+          sender: AGENT,
+          origin_server_ts: 4_000,
+          content: {
+            msgtype: 'm.text',
+            body: '* final',
+            'm.new_content': {
+              msgtype: 'm.text',
+              body: 'final',
+              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.60' }, model: { display_name: 'Opus 5.5' } },
+            },
+            'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r1' },
+          },
+        },
+      },
+    };
+
+    // Sender-mismatched bundled edit on $r2 must be rejected.
+    const r2 = thread.findEventById('$r2')!;
+    r2.event.unsigned = {
+      'm.relations': {
+        'm.replace': {
+          type: EventType.RoomMessage,
+          event_id: '$spoof-bundled',
+          room_id: ROOM_ID,
+          sender: VIEWER,
+          origin_server_ts: 5_000,
+          content: {
+            msgtype: 'm.text',
+            body: '* spoof',
+            'm.new_content': {
+              msgtype: 'm.text',
+              body: 'spoof',
+              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '99.00' } },
+            },
+            'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r2' },
+          },
+        },
+      },
+    };
+
+    // Bundled edit missing origin_server_ts on $r3 must be ignored.
+    const r3 = thread.findEventById('$r3')!;
+    r3.event.unsigned = {
+      'm.relations': {
+        'm.replace': {
+          type: EventType.RoomMessage,
+          event_id: '$no-ts-bundled',
+          room_id: ROOM_ID,
+          sender: AGENT,
+          content: {
+            msgtype: 'm.text',
+            body: '* no ts',
+            'm.new_content': {
+              msgtype: 'm.text',
+              body: 'no ts',
+              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '88.00' } },
+            },
+            'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r3' },
+          },
+        },
+      },
+    };
+
+    const summary = summarizeThreadUsage(room, '$root', VIEWER);
+    expect(summary?.totalCostUsd).toBe(0.75);
     expect(summary?.models).toEqual(['Opus 5.5']);
   });
 });

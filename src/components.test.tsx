@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { act } from 'react-dom/test-utils';
 import {
+  ClientEvent,
   createClient,
   EventType,
   MatrixEvent,
+  MatrixEventEvent,
   RelationType,
   Room,
   RoomEvent,
@@ -154,7 +156,7 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       false
     );
 
-    const { container } = await renderPluginComponent(
+    const { container, unmount } = await renderPluginComponent(
       <ThreadCardUsage room={room} threadId="$partial" />,
       { id: PLUGIN_ID, plugin, client }
     );
@@ -163,6 +165,26 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     expect(container.querySelector('[data-usage-context]')?.getAttribute('data-usage-severity')).toBe(
       'critical'
     );
+    unmount();
+
+    // Lower-bound costs floor downward on both card and details ($1.236 -> $1.23, $0.0429 -> $0.042).
+    await addThread(client, room, '$floorHigh', [
+      msg('$fh1', AGENT, { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '1.236' } } }),
+    ], false);
+    await addThread(client, room, '$floorLow', [
+      msg('$fl1', AGENT, { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.0429' } } }),
+    ], false);
+    const { container: floorView } = await renderPluginComponent(
+      <div>
+        <div data-floor="high"><ThreadCardUsage room={room} threadId="$floorHigh" /><ThreadUsageDetails room={room} threadId="$floorHigh" /></div>
+        <div data-floor="low"><ThreadCardUsage room={room} threadId="$floorLow" /><ThreadUsageDetails room={room} threadId="$floorLow" /></div>
+      </div>,
+      { id: PLUGIN_ID, plugin, client }
+    );
+    expect(floorView.querySelector('[data-floor="high"] [data-usage-cost]')?.textContent).toBe('≥ $1.23');
+    expect(floorView.querySelector('[data-floor="high"] [data-usage-detail="cost"]')?.textContent).toContain('At least $1.23');
+    expect(floorView.querySelector('[data-floor="low"] [data-usage-cost]')?.textContent).toBe('≥ $0.042');
+    expect(floorView.querySelector('[data-floor="low"] [data-usage-detail="cost"]')?.textContent).toContain('At least $0.042');
   });
 
   it('renders read-only ThreadUsageDetails with subagents, breakdown, models, and 2-part context bar', async () => {
@@ -219,7 +241,7 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     expect(container.querySelectorAll('button, a, [tabindex]')).toHaveLength(0);
   });
 
-  it('multiplexes 25 mounted cards onto <=1 room listener per event, updates live, and cleans up', async () => {
+  it('multiplexes 25 mounted cards onto <=1 room & client listener per event, updates live, and cleans up', async () => {
     const { client, room } = createRoom();
     const ids = Array.from({ length: 25 }, (_, i) => `$card_${i}`);
     for (const id of ids) {
@@ -229,12 +251,24 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
         }),
       ]);
     }
+    const firstThread = room.getThread('$card_0')!;
 
-    const baseTimeline = room.listenerCount(RoomEvent.Timeline);
-    const baseRedaction = room.listenerCount(RoomEvent.Redaction);
-    const baseReset = room.listenerCount(RoomEvent.TimelineReset);
-    const baseUpdate = room.listenerCount(ThreadEvent.Update);
-    const baseNewReply = room.listenerCount(ThreadEvent.NewReply);
+    const baseRoom = {
+      timeline: room.listenerCount(RoomEvent.Timeline),
+      redaction: room.listenerCount(RoomEvent.Redaction),
+      reset: room.listenerCount(RoomEvent.TimelineReset),
+      threadNew: room.listenerCount(ThreadEvent.New),
+      update: room.listenerCount(ThreadEvent.Update),
+      newReply: room.listenerCount(ThreadEvent.NewReply),
+      threadDelete: room.listenerCount(ThreadEvent.Delete),
+    };
+    const baseClient = {
+      decrypted: client.listenerCount(MatrixEventEvent.Decrypted),
+      replaced: client.listenerCount(MatrixEventEvent.Replaced),
+      accountData: client.listenerCount(ClientEvent.AccountData),
+    };
+    const baseThreadUpdate = firstThread.listenerCount(ThreadEvent.Update);
+    const baseThreadNewReply = firstThread.listenerCount(ThreadEvent.NewReply);
 
     const { container, unmount } = await renderPluginComponent(
       <div>
@@ -247,14 +281,21 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       { id: PLUGIN_ID, plugin, client }
     );
 
-    expect(room.listenerCount(RoomEvent.Timeline) - baseTimeline).toBe(1);
-    expect(room.listenerCount(RoomEvent.Redaction) - baseRedaction).toBe(1);
-    expect(room.listenerCount(RoomEvent.TimelineReset) - baseReset).toBe(1);
-    expect(room.listenerCount(ThreadEvent.Update) - baseUpdate).toBe(1);
-    expect(room.listenerCount(ThreadEvent.NewReply) - baseNewReply).toBe(1);
+    expect(room.listenerCount(RoomEvent.Timeline) - baseRoom.timeline).toBe(1);
+    expect(room.listenerCount(RoomEvent.Redaction) - baseRoom.redaction).toBe(1);
+    expect(room.listenerCount(RoomEvent.TimelineReset) - baseRoom.reset).toBe(1);
+    expect(room.listenerCount(ThreadEvent.New) - baseRoom.threadNew).toBe(1);
+    expect(room.listenerCount(ThreadEvent.Update) - baseRoom.update).toBe(1);
+    expect(room.listenerCount(ThreadEvent.NewReply) - baseRoom.newReply).toBe(1);
+    expect(room.listenerCount(ThreadEvent.Delete) - baseRoom.threadDelete).toBe(1);
+    expect(client.listenerCount(MatrixEventEvent.Decrypted) - baseClient.decrypted).toBe(1);
+    expect(client.listenerCount(MatrixEventEvent.Replaced) - baseClient.replaced).toBe(1);
+    expect(client.listenerCount(ClientEvent.AccountData) - baseClient.accountData).toBe(1);
+    // No redundant per-thread listeners are attached.
+    expect(firstThread.listenerCount(ThreadEvent.Update)).toBe(baseThreadUpdate);
+    expect(firstThread.listenerCount(ThreadEvent.NewReply)).toBe(baseThreadNewReply);
 
     // Live reply updates only the affected thread card.
-    const firstThread = room.getThread('$card_0')!;
     await act(async () => {
       firstThread.addEvents(
         [
@@ -269,12 +310,8 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       );
       firstThread.emit(ThreadEvent.Update, firstThread);
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
-      '$0.35'
-    );
-    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe(
-      '$0.10'
-    );
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.35');
+    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe('$0.10');
 
     // Live m.replace edit arriving via RoomEvent.Timeline updates the targeted thread card.
     const editEv = msg(
@@ -297,9 +334,121 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
         timeline: room.getLiveTimeline(),
       });
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
-      '$0.60'
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.60');
+
+    // Unrelated main-timeline m.replace edit short-circuits without scanning all 25 threads.
+    const mainMsg = msg('$main_msg', VIEWER, { body: 'plain room msg' });
+    room.getUnfilteredTimelineSet().addLiveEvent(mainMsg, { addToState: false });
+    const getThreadSpy = vi.spyOn(room, 'getThread');
+    const mainEdit = msg('$main_edit', VIEWER, {
+      'm.new_content': { msgtype: 'm.text', body: 'edited main' },
+      'm.relates_to': { rel_type: RelationType.Replace, event_id: '$main_msg' },
+    });
+    await act(async () => {
+      room.emit(RoomEvent.Timeline, mainEdit, room, false, false, { liveEvent: true, timeline: room.getLiveTimeline() });
+    });
+    expect(getThreadSpy).not.toHaveBeenCalled();
+    getThreadSpy.mockRestore();
+
+    // Live MatrixEventEvent.Replaced on client updates the affected thread immediately.
+    const r2 = firstThread.findEventById('$card_0_r2')!;
+    const replacedEdit = msg(
+      '$card_0_edit2',
+      AGENT,
+      {
+        'm.new_content': {
+          msgtype: 'm.text',
+          body: 'replaced',
+          'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.75' } },
+        },
+        'm.relates_to': { rel_type: RelationType.Replace, event_id: '$card_0_r2' },
+      },
+      1_700_000_020_000
     );
+    await act(async () => {
+      r2.makeReplaced(replacedEdit);
+      client.emit(MatrixEventEvent.Replaced, r2);
+    });
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.85');
+
+    // Live MatrixEventEvent.Decrypted on client updates an encrypted thread reply once decrypted.
+    const encReply = new MatrixEvent({
+      type: EventType.RoomMessageEncrypted,
+      event_id: '$card_1_enc',
+      room_id: ROOM_ID,
+      sender: AGENT,
+      origin_server_ts: 1_700_000_030_000,
+      content: {
+        algorithm: 'm.megolm.v1.aes-sha2',
+        ciphertext: 'cipher',
+        'm.relates_to': { rel_type: RelationType.Thread, event_id: '$card_1' },
+      },
+    });
+    const secondThread = room.getThread('$card_1')!;
+    await act(async () => {
+      secondThread.addEvents([encReply], false);
+      await encReply.attemptDecryption({
+        decryptEvent: async () => ({
+          clearEvent: {
+            type: EventType.RoomMessage,
+            content: {
+              msgtype: 'm.text',
+              body: 'decrypted',
+              'm.relates_to': { rel_type: RelationType.Thread, event_id: '$card_1' },
+              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.30' } },
+            },
+          },
+        }),
+      } as never);
+      client.emit(MatrixEventEvent.Decrypted, encReply);
+    });
+    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe('$0.40');
+
+    // When a decrypted event's target thread cannot be resolved yet, subscribed threads still refresh.
+    const thirdThread = room.getThread('$card_2')!;
+    const r2Card2 = thirdThread.findEventById('$card_2_r1')!;
+    r2Card2.event.unsigned = {
+      'm.relations': {
+        'm.replace': {
+          type: EventType.RoomMessage,
+          event_id: '$card_2_bundled',
+          room_id: ROOM_ID,
+          sender: AGENT,
+          origin_server_ts: 1_700_000_040_000,
+          content: {
+            msgtype: 'm.text',
+            body: '* updated',
+            'm.new_content': {
+              msgtype: 'm.text',
+              body: 'updated',
+              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.55' } },
+            },
+            'm.relates_to': { rel_type: RelationType.Replace, event_id: '$card_2_r1' },
+          },
+        },
+      },
+    };
+    const unresolvedDecrypted = msg('$detached_decrypted', AGENT, { body: 'detached' });
+    await act(async () => {
+      client.emit(MatrixEventEvent.Decrypted, unresolvedDecrypted);
+    });
+    expect(container.querySelector('[data-card="$card_2"] [data-usage-cost]')?.textContent).toBe('$0.55');
+
+    // Live ClientEvent.AccountData (m.ignored_user_list) refreshes ignored-user filtering immediately.
+    let ignoredSet = new Set<string>([AGENT]);
+    vi.spyOn(client, 'isUserIgnored').mockImplementation((u) => ignoredSet.has(u));
+    const ignoreEv = new MatrixEvent({ type: 'm.ignored_user_list', content: { ignored_users: { [AGENT]: {} } } });
+    await act(async () => {
+      client.emit(ClientEvent.AccountData, ignoreEv);
+    });
+    expect(container.querySelector('[data-card="$card_0"] [data-thread-usage-card]')).toBeNull();
+    expect(container.querySelector('[data-card="$card_1"] [data-thread-usage-card]')).toBeNull();
+
+    ignoredSet = new Set<string>();
+    await act(async () => {
+      client.emit(ClientEvent.AccountData, new MatrixEvent({ type: 'm.ignored_user_list', content: { ignored_users: {} } }));
+    });
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.85');
 
     // Live redaction arriving via RoomEvent.Redaction drops the redacted reply's cost.
     const redactionEv = new MatrixEvent({
@@ -314,15 +463,18 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       firstThread.findEventById('$card_0_r2')?.makeRedacted(redactionEv, room);
       room.emit(RoomEvent.Redaction, redactionEv, room, '$card_0');
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
-      '$0.10'
-    );
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.10');
 
     unmount();
-    expect(room.listenerCount(RoomEvent.Timeline) - baseTimeline).toBe(0);
-    expect(room.listenerCount(RoomEvent.Redaction) - baseRedaction).toBe(0);
-    expect(room.listenerCount(RoomEvent.TimelineReset) - baseReset).toBe(0);
-    expect(room.listenerCount(ThreadEvent.Update) - baseUpdate).toBe(0);
-    expect(room.listenerCount(ThreadEvent.NewReply) - baseNewReply).toBe(0);
+    expect(room.listenerCount(RoomEvent.Timeline) - baseRoom.timeline).toBe(0);
+    expect(room.listenerCount(RoomEvent.Redaction) - baseRoom.redaction).toBe(0);
+    expect(room.listenerCount(RoomEvent.TimelineReset) - baseRoom.reset).toBe(0);
+    expect(room.listenerCount(ThreadEvent.New) - baseRoom.threadNew).toBe(0);
+    expect(room.listenerCount(ThreadEvent.Update) - baseRoom.update).toBe(0);
+    expect(room.listenerCount(ThreadEvent.NewReply) - baseRoom.newReply).toBe(0);
+    expect(room.listenerCount(ThreadEvent.Delete) - baseRoom.threadDelete).toBe(0);
+    expect(client.listenerCount(MatrixEventEvent.Decrypted) - baseClient.decrypted).toBe(0);
+    expect(client.listenerCount(MatrixEventEvent.Replaced) - baseClient.replaced).toBe(0);
+    expect(client.listenerCount(ClientEvent.AccountData) - baseClient.accountData).toBe(0);
   });
 });

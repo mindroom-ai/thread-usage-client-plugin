@@ -1,12 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { usePluginTranslation, type ThreadDetailProps } from '@mindroom/client-sdk/core';
-import {
-  clampContextPercentage,
-  contextSeverity,
-  formatCompactTokens,
-  formatCostUsd,
-  formatExactTokens,
-} from './format';
+import { contextSeverity, formatCompactTokens, formatCostUsd, formatExactTokens } from './format';
 import { pluginRootStyle } from './theme';
 import { PLUGIN_ID, TOKEN_KINDS, useThreadUsage } from './threadUsage';
 
@@ -29,7 +23,7 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
   });
 
   const ctx = summary.context;
-  const pct = ctx ? clampContextPercentage(ctx.percentage) : 0;
+  const pct = ctx ? ctx.percentage : 0;
   const severity = ctx ? contextSeverity(pct) : 'normal';
   const cachePct =
     ctx && ctx.cacheReadTokens !== undefined && ctx.inputTokens > 0
@@ -46,12 +40,18 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
             <span className="mrtu-detail-value">
               {summary.costComplete
                 ? formatCostUsd(summary.totalCostUsd, locale)
-                : t('details.atLeast', { value: formatCostUsd(summary.totalCostUsd, locale) })}
+                : t('details.atLeast', {
+                    value: formatCostUsd(summary.totalCostUsd, locale, { lowerBound: true }),
+                  })}
             </span>
           </div>
           {summary.subagentsCostUsd > 0 ? (
             <span className="mrtu-detail-sub">
-              {t('details.subagents', { cost: formatCostUsd(summary.subagentsCostUsd, locale) })}
+              {t('details.subagents', {
+                cost: formatCostUsd(summary.subagentsCostUsd, locale, {
+                  lowerBound: !summary.costComplete,
+                }),
+              })}
             </span>
           ) : null}
         </div>

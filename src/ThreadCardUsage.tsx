@@ -5,12 +5,7 @@ import {
   usePluginTranslation,
   type ThreadCardBadgeProps,
 } from '@mindroom/client-sdk/core';
-import {
-  clampContextPercentage,
-  contextSeverity,
-  formatCompactTokens,
-  formatCostUsd,
-} from './format';
+import { contextSeverity, formatCompactTokens, formatCostUsd } from './format';
 import { pluginRootStyle } from './theme';
 import { PLUGIN_ID, readUsageConfig, useThreadUsage } from './threadUsage';
 
@@ -28,7 +23,7 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
 
   const segments: { key: string; node: ReactNode }[] = [];
   if (config.showCost && summary.totalCostUsd !== undefined) {
-    const cost = formatCostUsd(summary.totalCostUsd, locale);
+    const cost = formatCostUsd(summary.totalCostUsd, locale, { lowerBound: !summary.costComplete });
     segments.push({
       key: 'cost',
       node: (
@@ -65,7 +60,7 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
     });
   }
   if (config.showContext && summary.context !== undefined) {
-    const pct = clampContextPercentage(summary.context.percentage);
+    const pct = summary.context.percentage;
     const severity = contextSeverity(pct);
     segments.push({
       key: 'context',

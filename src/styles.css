@@ -6,17 +6,22 @@
   max-inline-size: 100%;
   block-size: 1.25rem;
   font-family: var(--tu-font-sans, inherit);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1rem;
-  color: var(--tu-muted);
+  color: inherit;
   white-space: nowrap;
   overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
 .mrtu-cost {
   flex: none;
-  color: var(--tu-fg);
+  color: currentColor;
   font-weight: 500;
+}
+.mrtu-tokens,
+.mrtu-model-group,
+.mrtu-context {
+  opacity: var(--tu-quiet, 0.9);
 }
 .mrtu-tokens,
 .mrtu-model-more {
@@ -34,7 +39,6 @@
   text-overflow: ellipsis;
 }
 .mrtu-model-more {
-  opacity: 0.85;
   white-space: pre;
 }
 .mrtu-dot {
@@ -56,16 +60,17 @@
 }
 .mrtu-ring-track {
   fill: none;
-  stroke: color-mix(in srgb, var(--tu-fg) 16%, transparent);
+  stroke: color-mix(in srgb, currentColor 18%, transparent);
 }
 .mrtu-ring-fill {
   fill: none;
-  stroke: color-mix(in srgb, var(--tu-fg) 62%, var(--tu-surface));
+  stroke: color-mix(in srgb, currentColor 70%, transparent);
   stroke-linecap: round;
 }
 .mrtu-severity-warning {
   color: color-mix(in srgb, var(--tu-warning) 68%, var(--tu-fg));
   font-weight: 500;
+  opacity: 1;
 }
 .mrtu-severity-warning .mrtu-ring-fill {
   stroke: var(--tu-warning);
@@ -73,6 +78,7 @@
 .mrtu-severity-critical {
   color: color-mix(in srgb, var(--tu-critical) 78%, var(--tu-fg));
   font-weight: 600;
+  opacity: 1;
 }
 .mrtu-severity-critical .mrtu-ring-fill {
   stroke: var(--tu-critical);

@@ -8,10 +8,9 @@ import { color, config } from 'folds';
 export function pluginRootStyle(): CSSProperties {
   return {
     '--tu-fg': color.Surface.OnContainer,
-    '--tu-muted': `color-mix(in srgb, ${color.SurfaceVariant.OnContainer} 72%, ${color.Surface.Container})`,
+    '--tu-muted': `color-mix(in srgb, ${color.SurfaceVariant.OnContainer} 78%, ${color.Surface.Container})`,
+    '--tu-quiet': config.opacity.P400,
     '--tu-surface': color.Surface.Container,
-    '--tu-border': color.Surface.ContainerLine,
-    '--tu-track': color.SurfaceVariant.ContainerLine,
     '--tu-primary': color.Primary.Main,
     '--tu-warning': color.Warning.Main,
     '--tu-critical': color.Critical.Main,
