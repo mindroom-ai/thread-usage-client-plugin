@@ -568,4 +568,112 @@ describe('summarizeThreadUsage', () => {
     expect(summary?.totalCostUsd).toBe(0.75);
     expect(summary?.models).toEqual(['Opus 5.5']);
   });
+
+  it('summarizes unopened threads from rootEvent and bundled replyToEvent as lower bounds', async () => {
+    const client = createClient({ baseUrl: 'https://example.org', userId: VIEWER });
+    vi.spyOn(client, 'supportsThreads').mockReturnValue(true);
+    const room = new Room(ROOM_ID, client, VIEWER);
+    client.store.storeRoom(room);
+
+    const latestRaw = {
+      type: EventType.RoomMessage,
+      event_id: '$bundled_reply',
+      room_id: ROOM_ID,
+      sender: AGENT,
+      origin_server_ts: 1_700_000_005_000,
+      content: {
+        msgtype: 'm.text',
+        body: 'Latest agent reply',
+        'm.relates_to': { rel_type: RelationType.Thread, event_id: '$unopened' },
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          model: { display_name: 'Opus 5.5' },
+          cost: { usd: '0.09', subagents_usd: '0.03' },
+          usage: { cache_read_tokens: 30_000, uncached_input_tokens: 12_000, output_tokens: 6_000 },
+          context: { input_tokens: 128_000, window_tokens: 200_000, cache_read_input_tokens: 96_000 },
+        },
+      },
+    };
+    const root = new MatrixEvent({
+      type: EventType.RoomMessage,
+      event_id: '$unopened',
+      room_id: ROOM_ID,
+      sender: VIEWER,
+      origin_server_ts: 1_700_000_000_000,
+      content: { msgtype: 'm.text', body: 'Start thread' },
+      unsigned: {
+        'm.relations': {
+          'm.thread': { latest_event: latestRaw, count: 3, current_user_participated: true },
+        },
+      },
+    });
+    room.getUnfilteredTimelineSet().addLiveEvent(root, { addToState: false });
+    const thread = room.createThread('$unopened', root, [], false);
+    await vi.waitFor(() => expect(thread.replyToEvent?.getId()).toBe('$bundled_reply'));
+
+    expect(thread.initialEventsFetched).toBe(false);
+    expect(thread.events).toHaveLength(0);
+    expect(threadHasUsage(room, '$unopened')).toBe(true);
+
+    const summary = summarizeThreadUsage(room, '$unopened', VIEWER);
+    expect(summary).toEqual({
+      totalCostUsd: 0.12,
+      subagentsCostUsd: 0.03,
+      pricedReplyCount: 1,
+      totalTokens: 48_000,
+      tokenCounts: { cacheRead: 30_000, newInput: 12_000, output: 6_000 },
+      tokenReplyCount: 1,
+      models: ['Opus 5.5'],
+      context: { inputTokens: 128_000, windowTokens: 200_000, percentage: 64, cacheReadTokens: 96_000 },
+      costComplete: false,
+      tokensComplete: false,
+    });
+
+    // Agent-authored rootEvent + bundled replyToEvent preserves chronological order (root first, latest reply last).
+    const agentRoot = new MatrixEvent({
+      type: EventType.RoomMessage,
+      event_id: '$agent_root',
+      room_id: ROOM_ID,
+      sender: AGENT,
+      origin_server_ts: 1_700_000_000_000,
+      content: {
+        msgtype: 'm.text',
+        body: 'Agent root',
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          model: { display_name: 'Sonnet 4.6' },
+          cost: { usd: '0.05' },
+          context: { input_tokens: 20_000, window_tokens: 200_000 },
+        },
+      },
+      unsigned: {
+        'm.relations': {
+          'm.thread': {
+            latest_event: {
+              ...latestRaw,
+              event_id: '$agent_latest',
+              content: {
+                ...latestRaw.content,
+                'm.relates_to': { rel_type: RelationType.Thread, event_id: '$agent_root' },
+              },
+            },
+            count: 2,
+            current_user_participated: false,
+          },
+        },
+      },
+    });
+    room.getUnfilteredTimelineSet().addLiveEvent(agentRoot, { addToState: false });
+    const agentThread = room.createThread('$agent_root', agentRoot, [], false);
+    await vi.waitFor(() => expect(agentThread.replyToEvent?.getId()).toBe('$agent_latest'));
+
+    const both = summarizeThreadUsage(room, '$agent_root', VIEWER);
+    expect(both?.totalCostUsd).toBe(0.17);
+    expect(both?.models).toEqual(['Opus 5.5', 'Sonnet 4.6']);
+    expect(both?.context?.percentage).toBe(64);
+    expect(both?.costComplete).toBe(false);
+    expect(both?.tokensComplete).toBe(false);
+  });
 });

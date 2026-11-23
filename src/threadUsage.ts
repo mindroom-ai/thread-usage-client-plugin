@@ -76,6 +76,12 @@ const collectThreadEvents = (thread: Thread) => {
     const id = ev.getId();
     if (id && !seen.has(id)) { seen.add(id); events.push(ev); }
   }
+  const root = thread.rootEvent;
+  const rootId = root?.getId();
+  if (root && rootId && !seen.has(rootId)) { seen.add(rootId); events.unshift(root); }
+  const reply = thread.replyToEvent;
+  const replyId = reply?.getId();
+  if (reply && replyId && !seen.has(replyId)) { seen.add(replyId); events.push(reply); }
   return { events, oldest: linked[0] };
 };
 
@@ -284,7 +290,7 @@ const findTargetThread = (room: Room, bus: RoomUsageBus, targetId: string): stri
   }
   for (const tid of bus.channels.keys()) {
     const th = room.getThread(tid);
-    if (th && (th.rootEvent?.getId() === targetId || th.findEventById?.(targetId) !== undefined || th.events?.some((e) => e.getId() === targetId))) return tid;
+    if (th && (th.rootEvent?.getId() === targetId || th.findEventById?.(targetId) !== undefined || th.events?.some((e) => e.getId() === targetId) || th.replyToEvent?.getId() === targetId)) return tid;
   }
   return undefined;
 };

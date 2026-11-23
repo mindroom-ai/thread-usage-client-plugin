@@ -13,7 +13,9 @@ export function pluginRootStyle(): CSSProperties {
     '--tu-surface': color.Surface.Container,
     '--tu-primary': color.Primary.Main,
     '--tu-warning': color.Warning.Main,
+    '--tu-warning-text': color.Warning.OnContainer,
     '--tu-critical': color.Critical.Main,
+    '--tu-critical-text': color.Critical.OnContainer,
     '--tu-font-sans': config.font.Inter,
   } as CSSProperties;
 }

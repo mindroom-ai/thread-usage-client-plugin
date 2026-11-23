@@ -66,7 +66,7 @@
   stroke-linecap: round;
 }
 .mrtu-severity-warning {
-  color: color-mix(in srgb, var(--tu-warning) 68%, var(--tu-fg));
+  color: color-mix(in srgb, var(--tu-warning) 40%, var(--tu-warning-text));
   font-weight: 500;
   opacity: 1;
 }
@@ -74,7 +74,7 @@
   stroke: var(--tu-warning);
 }
 .mrtu-severity-critical {
-  color: color-mix(in srgb, var(--tu-critical) 78%, var(--tu-fg));
+  color: color-mix(in srgb, var(--tu-critical) 40%, var(--tu-critical-text));
   font-weight: 600;
   opacity: 1;
 }

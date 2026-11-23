@@ -13,7 +13,7 @@ A standalone example [MindRoom Chat](https://github.com/mindroom-ai/mindroom-cha
   - **Cost**: total spend, `+$X subagents` note when subagent spend is present, and `At least $X` when the sum is a lower bound
   - **Tokens**: localized total plus compact breakdown (cache read, cache write, uncached/new input, output)
   - **Models**: all distinct models used in the thread, most recent first
-  - **Context**: `128k / 200k · 64%` with a subtle 2-part progress bar distinguishing cached and uncached input share
+  - **Context**: `128k / 200k · 64%` with a subtle 2-part progress bar and cached/new input breakdown line (`96k cached · 32k new`) when cached tokens are present
 
 Only messages from trusted MindRoom agents on the viewer's homeserver (and not ignored by the viewer) are counted.
 

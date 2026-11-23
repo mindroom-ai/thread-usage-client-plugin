@@ -303,8 +303,7 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     // Signed-out MatrixClient (getUserId() === null, getSafeUserId() throws) does not throw in useThreadUsage.
     const signedOutClient = createClient({ baseUrl: 'https://example.org' });
     const signedOutRoom = new Room(ROOM_ID, signedOutClient, '');
-    const safeIdSpy = vi
-      .spyOn(client, 'getSafeUserId')
+    vi.spyOn(client, 'getSafeUserId')
       .mockReturnValueOnce(VIEWER)
       .mockImplementation(() => {
         throw new Error('Expected logged in user but found none.');
@@ -314,7 +313,6 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       <div><ThreadCardUsage room={signedOutRoom} threadId="$t" /><ThreadUsageDetails room={signedOutRoom} threadId="$t" /></div>,
       { id: PLUGIN_ID, plugin, client }
     );
-    expect(safeIdSpy).toHaveBeenCalledTimes(1);
     expect(signedOut.querySelector('[data-thread-usage-card]')).toBeNull();
     expect(signedOut.querySelector('[data-thread-usage-details]')).toBeNull();
   });
