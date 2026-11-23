@@ -1,4 +1,39 @@
 {
-  "extends": "./.mindroom-chat/tsconfig.plugin.json",
-  "include": ["src", "e2e"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "typeRoots": ["./.mindroom-chat/node_modules/@types"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@mindroom/client-sdk/*": ["./.mindroom-chat/src/client-sdk/*"],
+      "@mindroom/e2e/*": ["./.mindroom-chat/e2e/helpers/*"],
+      "@playwright/test": [
+        "./.mindroom-chat/node_modules/@playwright/test/index.d.ts",
+        "./.mindroom-chat/node_modules/@playwright/test/index.mjs"
+      ],
+      "react": ["./.mindroom-chat/node_modules/@types/react"],
+      "react/*": ["./.mindroom-chat/node_modules/@types/react/*"],
+      "react-dom": ["./.mindroom-chat/node_modules/@types/react-dom"],
+      "react-dom/*": ["./.mindroom-chat/node_modules/@types/react-dom/*"],
+      "folds": ["./.mindroom-chat/node_modules/folds"],
+      "react-i18next": ["./.mindroom-chat/node_modules/react-i18next"],
+      "matrix-js-sdk": ["./.mindroom-chat/node_modules/matrix-js-sdk"],
+      "matrix-js-sdk/*": ["./.mindroom-chat/node_modules/matrix-js-sdk/*"],
+      "vitest": ["./.mindroom-chat/node_modules/vitest"]
+    }
+  },
+  "include": [
+    "src",
+    "e2e",
+    ".mindroom-chat/src/types",
+    ".mindroom-chat/node_modules/vite/client.d.ts"
+  ]
 }
