@@ -33,7 +33,9 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
   const contextParts =
     ctx && ctx.cacheReadTokens !== undefined && ctx.cacheReadTokens > 0
       ? [
-          t('details.tokenKind.cacheRead', { value: formatCompactTokens(ctx.cacheReadTokens, locale) }),
+          t('details.tokenKind.cacheRead', {
+            value: formatCompactTokens(ctx.cacheReadTokens, locale),
+          }),
           ...(ctx.inputTokens > ctx.cacheReadTokens
             ? [
                 t('details.tokenKind.newInput', {
@@ -80,14 +82,18 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
                 : t('details.atLeast', { value: formatExactTokens(summary.totalTokens, locale) })}
             </span>
           </div>
-          {tokenParts.length > 0 ? <span className="mrtu-detail-sub">{tokenParts.join(' · ')}</span> : null}
+          {tokenParts.length > 0 ? (
+            <span className="mrtu-detail-sub">{tokenParts.join(' · ')}</span>
+          ) : null}
         </div>
       ) : null}
 
       {summary.models.length > 0 ? (
         <div className="mrtu-detail-block" data-usage-detail="models">
           <div className="mrtu-detail-row">
-            <span className="mrtu-detail-label">{t('details.model', { count: summary.models.length })}</span>
+            <span className="mrtu-detail-label">
+              {t('details.model', { count: summary.models.length })}
+            </span>
             <span className="mrtu-detail-value">{summary.models.join(', ')}</span>
           </div>
         </div>
@@ -113,7 +119,10 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
               <span className="mrtu-bar-cached" style={{ inlineSize: `${cachePct}%` }} />
             ) : null}
             {uncachedPct > 0 ? (
-              <span className={`mrtu-bar-uncached mrtu-bar-${severity}`} style={{ inlineSize: `${uncachedPct}%` }} />
+              <span
+                className={`mrtu-bar-uncached mrtu-bar-${severity}`}
+                style={{ inlineSize: `${uncachedPct}%` }}
+              />
             ) : null}
           </div>
           {contextParts.length > 0 ? (

@@ -269,7 +269,9 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   await expect(hoverDetails).toContainText('+$0.34 subagents');
   await expect(hoverDetails).toContainText('Opus 5.5, Sonnet 5.5');
   await expect(hoverDetails).toContainText('128k / 200k · 64%');
-  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText('96k cached · 32k new');
+  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText(
+    '96k cached · 32k new'
+  );
   await shot(page, 'hover-dark');
 
   await page.emulateMedia({ colorScheme: 'light' });
@@ -296,9 +298,15 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   await page.mouse.move(0, 0);
   await card(page, data.devRoot).hover();
   await expect(hoverDetails).toBeVisible({ timeout: 10_000 });
-  await expect(hoverDetails.locator('[data-usage-detail="cost"] .mrtu-detail-value')).toHaveText('$1.42');
-  await expect(hoverDetails.locator('[data-usage-detail="tokens"] .mrtu-detail-value')).toHaveText('420,000');
-  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText('96k cached · 32k new');
+  await expect(hoverDetails.locator('[data-usage-detail="cost"] .mrtu-detail-value')).toHaveText(
+    '$1.42'
+  );
+  await expect(hoverDetails.locator('[data-usage-detail="tokens"] .mrtu-detail-value')).toHaveText(
+    '420,000'
+  );
+  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText(
+    '96k cached · 32k new'
+  );
 });
 
 test('keeps telemetry legible on a phone viewport in dark and light modes', async ({

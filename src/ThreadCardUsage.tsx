@@ -58,7 +58,9 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
       node: (
         <span className="mrtu-model-group" data-usage-model="">
           <span className="mrtu-model">{latestModel}</span>
-          {extra > 0 ? <span className="mrtu-model-more">{` ${t('card.moreModels', { count: extra })}`}</span> : null}
+          {extra > 0 ? (
+            <span className="mrtu-model-more">{` ${t('card.moreModels', { count: extra })}`}</span>
+          ) : null}
         </span>
       ),
     });
@@ -69,7 +71,11 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
     segments.push({
       key: 'context',
       node: (
-        <span className={`mrtu-context mrtu-severity-${severity}`} data-usage-context="" data-usage-severity={severity}>
+        <span
+          className={`mrtu-context mrtu-severity-${severity}`}
+          data-usage-context=""
+          data-usage-severity={severity}
+        >
           <svg className="mrtu-ring" viewBox="0 0 16 16" aria-hidden="true">
             <circle className="mrtu-ring-track" cx="8" cy="8" r={RING_RADIUS} strokeWidth="2.2" />
             {pct > 0 ? (
@@ -111,7 +117,11 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
     <span className="mrtu-card-strip" data-thread-usage-card="" style={pluginRootStyle()}>
       {shown.map(({ key, node }, index) => (
         <Fragment key={key}>
-          {index > 0 ? <span className="mrtu-dot" aria-hidden="true">·</span> : null}
+          {index > 0 ? (
+            <span className="mrtu-dot" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
           {node}
         </Fragment>
       ))}

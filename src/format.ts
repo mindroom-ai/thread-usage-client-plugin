@@ -51,7 +51,8 @@ export function formatCompactTokens(
     if (next && safe >= next.divisor) continue;
     if (safe < unit.decBelow) {
       const tenths = snap(safe / (unit.divisor / 10));
-      if (tenths < (unit.decBelow / unit.divisor) * 10) return `${fmt(tenths / 10, 1)}${unit.suffix}`;
+      if (tenths < (unit.decBelow / unit.divisor) * 10)
+        return `${fmt(tenths / 10, 1)}${unit.suffix}`;
     }
     const whole = snap(safe / unit.divisor);
     if (!next || whole < next.divisor / unit.divisor) return `${fmt(whole, 0)}${unit.suffix}`;

@@ -24,7 +24,12 @@ const ROOM_ID = '!ops:example.org';
 const VIEWER = '@alice:example.org';
 const AGENT = '@mindroom_dev:example.org';
 
-const msg = (id: string, sender: string, content: Record<string, unknown>, ts = 1_700_000_000_000) =>
+const msg = (
+  id: string,
+  sender: string,
+  content: Record<string, unknown>,
+  ts = 1_700_000_000_000
+) =>
   new MatrixEvent({
     type: EventType.RoomMessage,
     event_id: id,
@@ -81,7 +86,10 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     const thread = room.createThread(rootId, root, [], false);
     if (fetched) await thread.initialize();
     if (replies.length > 0) {
-      thread.addEvents(replies.map((ev) => replyIn(rootId, ev)), false);
+      thread.addEvents(
+        replies.map((ev) => replyIn(rootId, ev)),
+        false
+      );
       await vi.waitFor(() => expect(thread.events.length).toBeGreaterThanOrEqual(replies.length));
     }
     return thread;
@@ -96,7 +104,11 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
           status: 'completed',
           model: { display_name: 'Sonnet 5.5' },
           cost: { usd: '0.42', subagents_usd: '0.18' },
-          usage: { cache_read_tokens: 180_000, uncached_input_tokens: 30_000, output_tokens: 10_000 },
+          usage: {
+            cache_read_tokens: 180_000,
+            uncached_input_tokens: 30_000,
+            output_tokens: 10_000,
+          },
           context: { input_tokens: 60_000, window_tokens: 200_000 },
         },
       }),
@@ -106,8 +118,16 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
           status: 'completed',
           model: { display_name: 'Opus 5.5' },
           cost: { usd: '0.66', subagents_usd: '0.16' },
-          usage: { cache_read_tokens: 140_000, uncached_input_tokens: 40_000, output_tokens: 20_000 },
-          context: { input_tokens: 128_000, window_tokens: 200_000, cache_read_input_tokens: 96_000 },
+          usage: {
+            cache_read_tokens: 140_000,
+            uncached_input_tokens: 40_000,
+            output_tokens: 20_000,
+          },
+          context: {
+            input_tokens: 128_000,
+            window_tokens: 200_000,
+            cache_read_input_tokens: 96_000,
+          },
         },
       }),
     ]);
@@ -178,29 +198,59 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     );
     expect(container.querySelector('[data-usage-cost]')?.textContent).toBe('≥ $0.08');
     expect(container.querySelector('[data-usage-tokens]')?.textContent).toBe('≥ 48k');
-    expect(container.querySelector('[data-usage-context]')?.getAttribute('data-usage-severity')).toBe(
-      'critical'
-    );
+    expect(
+      container.querySelector('[data-usage-context]')?.getAttribute('data-usage-severity')
+    ).toBe('critical');
     unmount();
 
     // Lower-bound costs floor downward on both card and details ($1.236 -> $1.23, $0.0429 -> $0.042).
-    await addThread(client, room, '$floorHigh', [
-      msg('$fh1', AGENT, { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '1.236' } } }),
-    ], false);
-    await addThread(client, room, '$floorLow', [
-      msg('$fl1', AGENT, { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.0429' } } }),
-    ], false);
+    await addThread(
+      client,
+      room,
+      '$floorHigh',
+      [
+        msg('$fh1', AGENT, {
+          'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '1.236' } },
+        }),
+      ],
+      false
+    );
+    await addThread(
+      client,
+      room,
+      '$floorLow',
+      [
+        msg('$fl1', AGENT, {
+          'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.0429' } },
+        }),
+      ],
+      false
+    );
     const { container: floorView } = await renderPluginComponent(
       <div>
-        <div data-floor="high"><ThreadCardUsage room={room} threadId="$floorHigh" /><ThreadUsageDetails room={room} threadId="$floorHigh" /></div>
-        <div data-floor="low"><ThreadCardUsage room={room} threadId="$floorLow" /><ThreadUsageDetails room={room} threadId="$floorLow" /></div>
+        <div data-floor="high">
+          <ThreadCardUsage room={room} threadId="$floorHigh" />
+          <ThreadUsageDetails room={room} threadId="$floorHigh" />
+        </div>
+        <div data-floor="low">
+          <ThreadCardUsage room={room} threadId="$floorLow" />
+          <ThreadUsageDetails room={room} threadId="$floorLow" />
+        </div>
       </div>,
       { id: PLUGIN_ID, plugin, client }
     );
-    expect(floorView.querySelector('[data-floor="high"] [data-usage-cost]')?.textContent).toBe('≥ $1.23');
-    expect(floorView.querySelector('[data-floor="high"] [data-usage-detail="cost"]')?.textContent).toContain('At least $1.23');
-    expect(floorView.querySelector('[data-floor="low"] [data-usage-cost]')?.textContent).toBe('≥ $0.042');
-    expect(floorView.querySelector('[data-floor="low"] [data-usage-detail="cost"]')?.textContent).toContain('At least $0.042');
+    expect(floorView.querySelector('[data-floor="high"] [data-usage-cost]')?.textContent).toBe(
+      '≥ $1.23'
+    );
+    expect(
+      floorView.querySelector('[data-floor="high"] [data-usage-detail="cost"]')?.textContent
+    ).toContain('At least $1.23');
+    expect(floorView.querySelector('[data-floor="low"] [data-usage-cost]')?.textContent).toBe(
+      '≥ $0.042'
+    );
+    expect(
+      floorView.querySelector('[data-floor="low"] [data-usage-detail="cost"]')?.textContent
+    ).toContain('At least $0.042');
   });
 
   it('renders read-only ThreadUsageDetails with subagents, breakdown, models, and 2-part context bar', async () => {
@@ -222,7 +272,11 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
               cache_write_tokens: 40_000,
               output_tokens: 50_000,
             },
-            context: { input_tokens: 128_000, window_tokens: 200_000, cache_read_input_tokens: 96_000 },
+            context: {
+              input_tokens: 128_000,
+              window_tokens: 200_000,
+              cache_read_input_tokens: 96_000,
+            },
           },
         }),
         msg('$d2', AGENT, {
@@ -267,7 +321,11 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
         'io.mindroom.ai_run': {
           version: 1,
           status: 'completed',
-          context: { input_tokens: 104_000, window_tokens: 200_000, cache_read_input_tokens: 104_000 },
+          context: {
+            input_tokens: 104_000,
+            window_tokens: 200_000,
+            cache_read_input_tokens: 104_000,
+          },
         },
       }),
     ]);
@@ -292,28 +350,54 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
 
     const { container, unmount } = await renderPluginComponent(
       <div>
-        <div data-case="allCached"><ThreadUsageDetails room={room} threadId="$allCached" /></div>
-        <div data-case="zeroCache"><ThreadCardUsage room={room} threadId="$zeroCache" /><ThreadUsageDetails room={room} threadId="$zeroCache" /></div>
-        <div data-case="critRound"><ThreadCardUsage room={room} threadId="$critRound" /><ThreadUsageDetails room={room} threadId="$critRound" /></div>
+        <div data-case="allCached">
+          <ThreadUsageDetails room={room} threadId="$allCached" />
+        </div>
+        <div data-case="zeroCache">
+          <ThreadCardUsage room={room} threadId="$zeroCache" />
+          <ThreadUsageDetails room={room} threadId="$zeroCache" />
+        </div>
+        <div data-case="critRound">
+          <ThreadCardUsage room={room} threadId="$critRound" />
+          <ThreadUsageDetails room={room} threadId="$critRound" />
+        </div>
       </div>,
       { id: PLUGIN_ID, plugin, client }
     );
-    expect(container.querySelector('[data-case="allCached"] [data-usage-context-breakdown]')?.textContent).toBe(
-      '104k cached'
-    );
-    expect(container.querySelector('[data-case="zeroCache"] [data-usage-context-breakdown]')).toBeNull();
+    expect(
+      container.querySelector('[data-case="allCached"] [data-usage-context-breakdown]')?.textContent
+    ).toBe('104k cached');
+    expect(
+      container.querySelector('[data-case="zeroCache"] [data-usage-context-breakdown]')
+    ).toBeNull();
     // 74.6% rounds to 75% -> warning on both card and details.
-    expect(container.querySelector('[data-case="zeroCache"] [data-usage-context]')?.textContent).toBe('75%');
     expect(
-      container.querySelector('[data-case="zeroCache"] [data-usage-context]')?.getAttribute('data-usage-severity')
+      container.querySelector('[data-case="zeroCache"] [data-usage-context]')?.textContent
+    ).toBe('75%');
+    expect(
+      container
+        .querySelector('[data-case="zeroCache"] [data-usage-context]')
+        ?.getAttribute('data-usage-severity')
     ).toBe('warning');
-    expect(container.querySelector('[data-case="zeroCache"] [data-usage-detail="context"] .mrtu-severity-warning')?.textContent).toBe('75%');
-    // 89.6% rounds to 90% -> critical on both card and details.
-    expect(container.querySelector('[data-case="critRound"] [data-usage-context]')?.textContent).toBe('90%');
     expect(
-      container.querySelector('[data-case="critRound"] [data-usage-context]')?.getAttribute('data-usage-severity')
+      container.querySelector(
+        '[data-case="zeroCache"] [data-usage-detail="context"] .mrtu-severity-warning'
+      )?.textContent
+    ).toBe('75%');
+    // 89.6% rounds to 90% -> critical on both card and details.
+    expect(
+      container.querySelector('[data-case="critRound"] [data-usage-context]')?.textContent
+    ).toBe('90%');
+    expect(
+      container
+        .querySelector('[data-case="critRound"] [data-usage-context]')
+        ?.getAttribute('data-usage-severity')
     ).toBe('critical');
-    expect(container.querySelector('[data-case="critRound"] [data-usage-detail="context"] .mrtu-severity-critical')?.textContent).toBe('90%');
+    expect(
+      container.querySelector(
+        '[data-case="critRound"] [data-usage-detail="context"] .mrtu-severity-critical'
+      )?.textContent
+    ).toBe('90%');
     unmount();
 
     // Signed-out MatrixClient (getUserId() === null, getSafeUserId() throws) does not throw in useThreadUsage.
@@ -326,7 +410,10 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       });
     vi.spyOn(client, 'getUserId').mockReturnValue(null);
     const { container: signedOut } = await renderPluginComponent(
-      <div><ThreadCardUsage room={signedOutRoom} threadId="$t" /><ThreadUsageDetails room={signedOutRoom} threadId="$t" /></div>,
+      <div>
+        <ThreadCardUsage room={signedOutRoom} threadId="$t" />
+        <ThreadUsageDetails room={signedOutRoom} threadId="$t" />
+      </div>,
       { id: PLUGIN_ID, plugin, client }
     );
     expect(signedOut.querySelector('[data-thread-usage-card]')).toBeNull();
@@ -402,8 +489,12 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       );
       firstThread.emit(ThreadEvent.Update, firstThread);
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.35');
-    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe('$0.10');
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
+      '$0.35'
+    );
+    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe(
+      '$0.10'
+    );
 
     // Live m.replace edit arriving via RoomEvent.Timeline updates the targeted thread card.
     const editEv = msg(
@@ -426,7 +517,9 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
         timeline: room.getLiveTimeline(),
       });
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.60');
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
+      '$0.60'
+    );
 
     // Unrelated main-timeline m.replace edit short-circuits without scanning all 25 threads.
     const mainMsg = msg('$main_msg', VIEWER, { body: 'plain room msg' });
@@ -437,7 +530,10 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       'm.relates_to': { rel_type: RelationType.Replace, event_id: '$main_msg' },
     });
     await act(async () => {
-      room.emit(RoomEvent.Timeline, mainEdit, room, false, false, { liveEvent: true, timeline: room.getLiveTimeline() });
+      room.emit(RoomEvent.Timeline, mainEdit, room, false, false, {
+        liveEvent: true,
+        timeline: room.getLiveTimeline(),
+      });
     });
     expect(getThreadSpy).not.toHaveBeenCalled();
     getThreadSpy.mockRestore();
@@ -461,7 +557,9 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       r2.makeReplaced(replacedEdit);
       client.emit(MatrixEventEvent.Replaced, r2);
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.85');
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
+      '$0.85'
+    );
 
     // Live MatrixEventEvent.Decrypted on client updates an encrypted thread reply once decrypted.
     const encReply = new MatrixEvent({
@@ -494,7 +592,9 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       } as never);
       client.emit(MatrixEventEvent.Decrypted, encReply);
     });
-    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe('$0.40');
+    expect(container.querySelector('[data-card="$card_1"] [data-usage-cost]')?.textContent).toBe(
+      '$0.40'
+    );
 
     // When a decrypted event's target thread cannot be resolved yet, subscribed threads still refresh.
     const thirdThread = room.getThread('$card_2')!;
@@ -524,12 +624,17 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     await act(async () => {
       client.emit(MatrixEventEvent.Decrypted, unresolvedDecrypted);
     });
-    expect(container.querySelector('[data-card="$card_2"] [data-usage-cost]')?.textContent).toBe('$0.55');
+    expect(container.querySelector('[data-card="$card_2"] [data-usage-cost]')?.textContent).toBe(
+      '$0.55'
+    );
 
     // Live ClientEvent.AccountData (m.ignored_user_list) refreshes ignored-user filtering immediately.
     let ignoredSet = new Set<string>([AGENT]);
     vi.spyOn(client, 'isUserIgnored').mockImplementation((u) => ignoredSet.has(u));
-    const ignoreEv = new MatrixEvent({ type: 'm.ignored_user_list', content: { ignored_users: { [AGENT]: {} } } });
+    const ignoreEv = new MatrixEvent({
+      type: 'm.ignored_user_list',
+      content: { ignored_users: { [AGENT]: {} } },
+    });
     await act(async () => {
       client.emit(ClientEvent.AccountData, ignoreEv);
     });
@@ -538,9 +643,14 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
 
     ignoredSet = new Set<string>();
     await act(async () => {
-      client.emit(ClientEvent.AccountData, new MatrixEvent({ type: 'm.ignored_user_list', content: { ignored_users: {} } }));
+      client.emit(
+        ClientEvent.AccountData,
+        new MatrixEvent({ type: 'm.ignored_user_list', content: { ignored_users: {} } })
+      );
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.85');
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
+      '$0.85'
+    );
 
     // Live redaction arriving via RoomEvent.Redaction drops the redacted reply's cost.
     const redactionEv = new MatrixEvent({
@@ -555,7 +665,9 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       firstThread.findEventById('$card_0_r2')?.makeRedacted(redactionEv, room);
       room.emit(RoomEvent.Redaction, redactionEv, room, '$card_0');
     });
-    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe('$0.10');
+    expect(container.querySelector('[data-card="$card_0"] [data-usage-cost]')?.textContent).toBe(
+      '$0.10'
+    );
 
     unmount();
     expect(room.listenerCount(RoomEvent.Timeline) - baseRoom.timeline).toBe(0);

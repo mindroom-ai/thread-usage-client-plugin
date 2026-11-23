@@ -92,10 +92,19 @@ describe('format helpers', () => {
 
   it('formats compact model labels matching getAiRunCompactModelLabel fallback order', () => {
     expect(
-      formatModelLabel({ display_name: ' my Friendly Model ', config: 'opus', id: 'gpt-5.4', provider: 'openai' })
+      formatModelLabel({
+        display_name: ' my Friendly Model ',
+        config: 'opus',
+        id: 'gpt-5.4',
+        provider: 'openai',
+      })
     ).toBe('my Friendly Model');
-    expect(formatModelLabel({ config: 'bedtime_fable', id: 'claude-opus-4-6' })).toBe('Bedtime Fable');
-    expect(formatModelLabel({ config: 'default', id: 'anthropic/claude-sonnet-4-6' })).toBe('Sonnet 4.6');
+    expect(formatModelLabel({ config: 'bedtime_fable', id: 'claude-opus-4-6' })).toBe(
+      'Bedtime Fable'
+    );
+    expect(formatModelLabel({ config: 'default', id: 'anthropic/claude-sonnet-4-6' })).toBe(
+      'Sonnet 4.6'
+    );
     expect(formatModelLabel({ config: 'auto', id: 'claude-opus-4-latest' })).toBe('Opus 4');
     expect(formatModelLabel({ id: 'claude-sonnet-latest' })).toBe('Sonnet');
     expect(formatModelLabel({ provider: 'openai', id: 'gpt-5.4' })).toBe('GPT-5.4');
@@ -167,7 +176,10 @@ describe('summarizeThreadUsage', () => {
     room.getUnfilteredTimelineSet().addLiveEvent(root, { addToState: false });
     const thread = room.createThread('$root', root, [], false);
     if (fetched) await thread.initialize();
-    thread.addEvents(replies.map((ev) => inThread(ev)), false);
+    thread.addEvents(
+      replies.map((ev) => inThread(ev)),
+      false
+    );
     if (replies.length > 0) {
       await vi.waitFor(() => expect(thread.events.length).toBeGreaterThanOrEqual(replies.length));
     }
@@ -199,7 +211,12 @@ describe('summarizeThreadUsage', () => {
     ]);
 
     thread.findEventById('$redacted')?.makeRedacted(
-      new MatrixEvent({ type: EventType.RoomRedaction, event_id: '$red', sender: VIEWER, content: {} }),
+      new MatrixEvent({
+        type: EventType.RoomRedaction,
+        event_id: '$red',
+        sender: VIEWER,
+        content: {},
+      }),
       room
     );
     expect(summarizeThreadUsage(room, '$missing', VIEWER)).toBeUndefined();
@@ -211,7 +228,9 @@ describe('summarizeThreadUsage', () => {
         'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.10' } },
       }),
     ]);
-    expect(summarizeThreadUsage(ignoredRoom, '$root', VIEWER, (id) => id === AGENT)).toBeUndefined();
+    expect(
+      summarizeThreadUsage(ignoredRoom, '$root', VIEWER, (id) => id === AGENT)
+    ).toBeUndefined();
 
     // Signed-out client (getUserId() === null, getSafeUserId() throws) returns false cleanly.
     const signedOutClient = createClient({ baseUrl: 'https://example.org' });
@@ -422,7 +441,14 @@ describe('summarizeThreadUsage', () => {
       { body: 'final answer' },
       2_000,
       // Top-level io.mindroom.ai_run fallback when m.new_content omits it.
-      { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.40' }, model: { display_name: 'Opus 5.5' } } }
+      {
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          cost: { usd: '0.40' },
+          model: { display_name: 'Opus 5.5' },
+        },
+      }
     );
     const newerTextOnlyEdit = makeEdit('$e2', '$r1', AGENT, { body: 'typo fix' }, 3_000);
     const spoofedEdit = makeEdit(
@@ -440,11 +466,18 @@ describe('summarizeThreadUsage', () => {
       5_000
     );
     redactedEdit.makeRedacted(
-      new MatrixEvent({ type: EventType.RoomRedaction, event_id: '$red2', sender: AGENT, content: {} }),
+      new MatrixEvent({
+        type: EventType.RoomRedaction,
+        event_id: '$red2',
+        sender: AGENT,
+        content: {},
+      }),
       room
     );
     const rel = thread.timelineSet.relations;
-    [olderAiEdit, newerTextOnlyEdit, spoofedEdit, redactedEdit].forEach((ev) => rel.aggregateChildEvent(ev));
+    [olderAiEdit, newerTextOnlyEdit, spoofedEdit, redactedEdit].forEach((ev) =>
+      rel.aggregateChildEvent(ev)
+    );
 
     // For $r2, a readable same-sender text-only edit does NOT borrow ai_run from the original pre-edit message.
     const r2InThread = thread.findEventById('$r2')!;
@@ -458,7 +491,10 @@ describe('summarizeThreadUsage', () => {
       room_id: ROOM_ID,
       sender: AGENT,
       origin_server_ts: 3_600,
-      content: { ciphertext: 'bad', 'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r3' } },
+      content: {
+        ciphertext: 'bad',
+        'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r3' },
+      },
     });
     r3InThread.makeReplaced(undecryptable);
 
@@ -491,7 +527,14 @@ describe('summarizeThreadUsage', () => {
         '$sdk-stale',
         '$r1',
         AGENT,
-        { 'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.11' }, model: { display_name: 'Stale' } } },
+        {
+          'io.mindroom.ai_run': {
+            version: 1,
+            status: 'completed',
+            cost: { usd: '0.11' },
+            model: { display_name: 'Stale' },
+          },
+        },
         2_000
       )
     );
@@ -509,7 +552,12 @@ describe('summarizeThreadUsage', () => {
             'm.new_content': {
               msgtype: 'm.text',
               body: 'final',
-              'io.mindroom.ai_run': { version: 1, status: 'completed', cost: { usd: '0.60' }, model: { display_name: 'Opus 5.5' } },
+              'io.mindroom.ai_run': {
+                version: 1,
+                status: 'completed',
+                cost: { usd: '0.60' },
+                model: { display_name: 'Opus 5.5' },
+              },
             },
             'm.relates_to': { rel_type: RelationType.Replace, event_id: '$r1' },
           },
@@ -591,7 +639,11 @@ describe('summarizeThreadUsage', () => {
           model: { display_name: 'Opus 5.5' },
           cost: { usd: '0.09', subagents_usd: '0.03' },
           usage: { cache_read_tokens: 30_000, uncached_input_tokens: 12_000, output_tokens: 6_000 },
-          context: { input_tokens: 128_000, window_tokens: 200_000, cache_read_input_tokens: 96_000 },
+          context: {
+            input_tokens: 128_000,
+            window_tokens: 200_000,
+            cache_read_input_tokens: 96_000,
+          },
         },
       },
     };
@@ -625,7 +677,12 @@ describe('summarizeThreadUsage', () => {
       tokenCounts: { cacheRead: 30_000, newInput: 12_000, output: 6_000 },
       tokenReplyCount: 1,
       models: ['Opus 5.5'],
-      context: { inputTokens: 128_000, windowTokens: 200_000, percentage: 64, cacheReadTokens: 96_000 },
+      context: {
+        inputTokens: 128_000,
+        windowTokens: 200_000,
+        percentage: 64,
+        cacheReadTokens: 96_000,
+      },
       costComplete: false,
       tokensComplete: false,
     });
