@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 import {
   ClientEvent, Direction, EventType, MatrixEvent, MatrixEventEvent, RelationType, RoomEvent, ThreadEvent,
   type EventTimeline, type EventTimelineSet, type MatrixClient, type Room, type Thread,
@@ -234,8 +234,8 @@ export function summarizeThreadUsage(room: Room, threadId: string, viewerId: str
   };
 }
 
-const viewerFrom = (c?: MatrixClient) => c?.getUserId?.() ?? c?.getSafeUserId?.() ?? undefined;
-const getViewerId = (room: Room, mx?: MatrixClient) => viewerFrom(room.client) ?? (room.myUserId || undefined) ?? viewerFrom(mx);
+const getViewerId = (room: Room, mx?: MatrixClient) =>
+  room.client?.getUserId?.() ?? (room.myUserId || undefined) ?? mx?.getUserId?.() ?? undefined;
 const getIgnored = (room: Room, mx?: MatrixClient): ((u: string) => boolean) | undefined => {
   const src = typeof mx?.isUserIgnored === 'function' ? mx : room.client;
   return typeof src?.isUserIgnored === 'function' ? (u) => src.isUserIgnored(u) : undefined;
@@ -250,10 +250,13 @@ const sameSummary = (a: ThreadUsageSummary | undefined, b: ThreadUsageSummary | 
   a === b || (a !== undefined && b !== undefined && JSON.stringify(a) === JSON.stringify(b));
 
 // Shared per-Room/client multiplexer: <= 1 listener per event type on `room` and `mx` across all cards.
-type ThreadChannel = { listeners: Set<() => void>; dirty: boolean };
+type ThreadChannel = {
+  listeners: Set<() => void>;
+  dirty: boolean;
+  cached?: { viewerId?: string; snapshot?: ThreadUsageSummary };
+};
 type RoomUsageBus = {
   channels: Map<string, ThreadChannel>;
-  snapshots: Map<string, { viewerId?: string; snapshot?: ThreadUsageSummary }>;
   stopRoom?: () => void;
   client?: MatrixClient;
   stopClient?: () => void;
@@ -262,7 +265,7 @@ type RoomUsageBus = {
 const roomBuses = new WeakMap<Room, RoomUsageBus>();
 const busOf = (room: Room): RoomUsageBus => {
   let bus = roomBuses.get(room);
-  if (!bus) { bus = { channels: new Map(), snapshots: new Map() }; roomBuses.set(room, bus); }
+  if (!bus) { bus = { channels: new Map() }; roomBuses.set(room, bus); }
   return bus;
 };
 const notifyThread = (bus: RoomUsageBus, threadId: string) => {
@@ -353,22 +356,26 @@ const subscribeThread = (room: Room, mx: MatrixClient | undefined, threadId: str
     ch.listeners.delete(fn);
     if (ch.listeners.size > 0) return;
     bus.channels.delete(threadId);
-    bus.snapshots.delete(threadId);
     if (bus.channels.size === 0) { bus.stopRoom?.(); bus.stopClient?.(); }
   };
 };
 
 const readSnapshot = (
-  room: Room, threadId: string, viewerId: string | undefined, ignored?: (u: string) => boolean
+  room: Room,
+  threadId: string,
+  viewerId: string | undefined,
+  ignored: ((u: string) => boolean) | undefined,
+  prev: ThreadUsageSummary | undefined
 ): ThreadUsageSummary | undefined => {
-  const bus = busOf(room);
-  const ch = bus.channels.get(threadId);
-  const cached = bus.snapshots.get(threadId);
-  if (ch && !ch.dirty && cached && cached.viewerId === viewerId) return cached.snapshot;
+  const ch = roomBuses.get(room)?.channels.get(threadId);
+  if (ch && !ch.dirty && ch.cached && ch.cached.viewerId === viewerId) return ch.cached.snapshot;
   const next = summarizeThreadUsage(room, threadId, viewerId, ignored);
-  const snapshot = cached && sameSummary(cached.snapshot, next) ? cached.snapshot : next;
-  bus.snapshots.set(threadId, { viewerId, snapshot });
-  if (ch) ch.dirty = false;
+  const base = ch?.cached ? ch.cached.snapshot : prev;
+  const snapshot = sameSummary(base, next) ? base : next;
+  if (ch) {
+    ch.cached = { viewerId, snapshot };
+    ch.dirty = false;
+  }
   return snapshot;
 };
 
@@ -377,6 +384,11 @@ export function useThreadUsage(room: Room, threadId: string): ThreadUsageSummary
   const mx = useMatrixClient();
   const viewerId = getViewerId(room, mx);
   const ignored = getIgnored(room, mx);
+  const lastRef = useRef<ThreadUsageSummary | undefined>(undefined);
   const subscribe = useCallback((notify: () => void) => subscribeThread(room, mx, threadId, notify), [room, mx, threadId]);
-  return useSyncExternalStore(subscribe, () => readSnapshot(room, threadId, viewerId, ignored));
+  return useSyncExternalStore(subscribe, () => {
+    const next = readSnapshot(room, threadId, viewerId, ignored, lastRef.current);
+    lastRef.current = next;
+    return next;
+  });
 }

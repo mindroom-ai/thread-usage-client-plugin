@@ -236,9 +236,87 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     expect(container.querySelector('[data-usage-detail="context"]')?.textContent).toContain(
       '128k / 200k · 64%'
     );
+    expect(container.querySelector('[data-usage-context-breakdown]')?.textContent).toBe(
+      '96k cached · 32k new'
+    );
     expect(container.querySelector('.mrtu-bar-cached')).not.toBeNull();
     expect(container.querySelector('.mrtu-bar-uncached')).not.toBeNull();
     expect(container.querySelectorAll('button, a, [tabindex]')).toHaveLength(0);
+  });
+
+  it('handles cached-only/zero-cache context breakdown, rounded severity thresholds, and signed-out clients', async () => {
+    const { client, room } = createRoom();
+    await addThread(client, room, '$allCached', [
+      msg('$ac1', AGENT, {
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          context: { input_tokens: 104_000, window_tokens: 200_000, cache_read_input_tokens: 104_000 },
+        },
+      }),
+    ]);
+    await addThread(client, room, '$zeroCache', [
+      msg('$zc1', AGENT, {
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          context: { input_tokens: 149_200, window_tokens: 200_000, cache_read_input_tokens: 0 },
+        },
+      }),
+    ]);
+    await addThread(client, room, '$critRound', [
+      msg('$cr1', AGENT, {
+        'io.mindroom.ai_run': {
+          version: 1,
+          status: 'completed',
+          context: { input_tokens: 179_200, window_tokens: 200_000 },
+        },
+      }),
+    ]);
+
+    const { container, unmount } = await renderPluginComponent(
+      <div>
+        <div data-case="allCached"><ThreadUsageDetails room={room} threadId="$allCached" /></div>
+        <div data-case="zeroCache"><ThreadCardUsage room={room} threadId="$zeroCache" /><ThreadUsageDetails room={room} threadId="$zeroCache" /></div>
+        <div data-case="critRound"><ThreadCardUsage room={room} threadId="$critRound" /><ThreadUsageDetails room={room} threadId="$critRound" /></div>
+      </div>,
+      { id: PLUGIN_ID, plugin, client }
+    );
+    expect(container.querySelector('[data-case="allCached"] [data-usage-context-breakdown]')?.textContent).toBe(
+      '104k cached'
+    );
+    expect(container.querySelector('[data-case="zeroCache"] [data-usage-context-breakdown]')).toBeNull();
+    // 74.6% rounds to 75% -> warning on both card and details.
+    expect(container.querySelector('[data-case="zeroCache"] [data-usage-context]')?.textContent).toBe('75%');
+    expect(
+      container.querySelector('[data-case="zeroCache"] [data-usage-context]')?.getAttribute('data-usage-severity')
+    ).toBe('warning');
+    expect(container.querySelector('[data-case="zeroCache"] [data-usage-detail="context"] .mrtu-severity-warning')?.textContent).toBe('75%');
+    // 89.6% rounds to 90% -> critical on both card and details.
+    expect(container.querySelector('[data-case="critRound"] [data-usage-context]')?.textContent).toBe('90%');
+    expect(
+      container.querySelector('[data-case="critRound"] [data-usage-context]')?.getAttribute('data-usage-severity')
+    ).toBe('critical');
+    expect(container.querySelector('[data-case="critRound"] [data-usage-detail="context"] .mrtu-severity-critical')?.textContent).toBe('90%');
+    unmount();
+
+    // Signed-out MatrixClient (getUserId() === null, getSafeUserId() throws) does not throw in useThreadUsage.
+    const signedOutClient = createClient({ baseUrl: 'https://example.org' });
+    const signedOutRoom = new Room(ROOM_ID, signedOutClient, '');
+    const safeIdSpy = vi
+      .spyOn(client, 'getSafeUserId')
+      .mockReturnValueOnce(VIEWER)
+      .mockImplementation(() => {
+        throw new Error('Expected logged in user but found none.');
+      });
+    vi.spyOn(client, 'getUserId').mockReturnValue(null);
+    const { container: signedOut } = await renderPluginComponent(
+      <div><ThreadCardUsage room={signedOutRoom} threadId="$t" /><ThreadUsageDetails room={signedOutRoom} threadId="$t" /></div>,
+      { id: PLUGIN_ID, plugin, client }
+    );
+    expect(safeIdSpy).toHaveBeenCalledTimes(1);
+    expect(signedOut.querySelector('[data-thread-usage-card]')).toBeNull();
+    expect(signedOut.querySelector('[data-thread-usage-details]')).toBeNull();
   });
 
   it('multiplexes 25 mounted cards onto <=1 room & client listener per event, updates live, and cleans up', async () => {

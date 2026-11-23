@@ -70,16 +70,24 @@ const usageStrip = (page: Page, rootId: string) =>
 const expectStripInsideMetadata = async (page: Page, rootId: string) => {
   const meta = card(page, rootId).locator('[data-compact-card-metadata]');
   const strip = usageStrip(page, rootId);
+  const lastChild = strip.locator(':scope > :last-child');
   await expect(strip).toBeVisible({ timeout: 30_000 });
-  const [metaBox, stripBox] = await Promise.all([meta.boundingBox(), strip.boundingBox()]);
+  const [metaBox, stripBox, lastChildBox] = await Promise.all([
+    meta.boundingBox(),
+    strip.boundingBox(),
+    lastChild.boundingBox(),
+  ]);
   expect(metaBox).not.toBeNull();
   expect(stripBox).not.toBeNull();
-  expect(stripBox!.width).toBeGreaterThan(0);
-  expect(stripBox!.height).toBeGreaterThan(0);
-  expect(stripBox!.x).toBeGreaterThanOrEqual(metaBox!.x - 1);
-  expect(stripBox!.y).toBeGreaterThanOrEqual(metaBox!.y - 1);
-  expect(stripBox!.x + stripBox!.width).toBeLessThanOrEqual(metaBox!.x + metaBox!.width + 1);
-  expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(metaBox!.y + metaBox!.height + 1);
+  expect(lastChildBox).not.toBeNull();
+  for (const box of [stripBox!, lastChildBox!]) {
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+    expect(box.x).toBeGreaterThanOrEqual(metaBox!.x - 1);
+    expect(box.y).toBeGreaterThanOrEqual(metaBox!.y - 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(metaBox!.x + metaBox!.width + 1);
+    expect(box.y + box.height).toBeLessThanOrEqual(metaBox!.y + metaBox!.height + 1);
+  }
 };
 
 const openCompactRoom = async (page: Page, data: Seed) => {
@@ -222,8 +230,8 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
 
   const devStrip = usageStrip(page, data.devRoot);
   await expect(devStrip).toBeVisible({ timeout: 30_000 });
-  await expect(devStrip.locator('[data-usage-cost]')).toContainText('$1.42');
-  await expect(devStrip.locator('[data-usage-tokens]')).toContainText('420k');
+  await expect(devStrip.locator('[data-usage-cost]')).toHaveText(/^(?:≥ )?\$1\.42$/);
+  await expect(devStrip.locator('[data-usage-tokens]')).toHaveText(/^(?:≥ )?420k$/);
   await expect(devStrip.locator('[data-usage-model]')).toHaveText('Opus 5.5 +1');
   await expect(devStrip.locator('[data-usage-context]')).toHaveText('64%');
   await expect(devStrip.locator('[data-usage-context]')).toHaveAttribute(
@@ -232,6 +240,9 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   );
 
   const warnStrip = usageStrip(page, data.warningRoot);
+  await expect(warnStrip.locator('[data-usage-cost]')).toHaveText(/^(?:≥ )?\$0\.38$/);
+  await expect(warnStrip.locator('[data-usage-tokens]')).toHaveText(/^(?:≥ )?190k$/);
+  await expect(warnStrip.locator('[data-usage-model]')).toHaveText('Sonnet 5.5');
   await expect(warnStrip.locator('[data-usage-context]')).toHaveText('88%');
   await expect(warnStrip.locator('[data-usage-context]')).toHaveAttribute(
     'data-usage-severity',
@@ -258,6 +269,7 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   await expect(hoverDetails).toContainText('+$0.34 subagents');
   await expect(hoverDetails).toContainText('Opus 5.5, Sonnet 5.5');
   await expect(hoverDetails).toContainText('128k / 200k · 64%');
+  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText('96k cached · 32k new');
   await shot(page, 'hover-dark');
 
   await page.emulateMedia({ colorScheme: 'light' });
@@ -266,9 +278,27 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
   await expect(hoverDetails).toBeVisible({ timeout: 10_000 });
   await shot(page, 'hover-light');
 
-  // Clicking the non-interactive telemetry strip opens the thread directly.
+  // Clicking the non-interactive telemetry strip opens the thread directly and loads full history.
   await devStrip.click();
   await expect(page).toHaveURL(new RegExp(`threadId=${encodeURIComponent(data.devRoot)}`));
+  await expect(
+    page.getByText('Mapped all webhook consumers and drafted the backoff schedule.')
+  ).toBeVisible({ timeout: 30_000 });
+
+  // Returning to Compact view keeps the loaded history, so cost and tokens render exact (no ≥).
+  await page.goBack();
+  await expect(devStrip).toBeVisible({ timeout: 30_000 });
+  await expect(devStrip.locator('[data-usage-cost]')).toHaveText('$1.42');
+  await expect(devStrip.locator('[data-usage-tokens]')).toHaveText('420k');
+  await expect(devStrip.locator('[data-usage-model]')).toHaveText('Opus 5.5 +1');
+  await expect(devStrip.locator('[data-usage-context]')).toHaveText('64%');
+
+  await page.mouse.move(0, 0);
+  await card(page, data.devRoot).hover();
+  await expect(hoverDetails).toBeVisible({ timeout: 10_000 });
+  await expect(hoverDetails.locator('[data-usage-detail="cost"] .mrtu-detail-value')).toHaveText('$1.42');
+  await expect(hoverDetails.locator('[data-usage-detail="tokens"] .mrtu-detail-value')).toHaveText('420,000');
+  await expect(hoverDetails.locator('[data-usage-context-breakdown]')).toHaveText('96k cached · 32k new');
 });
 
 test('keeps telemetry legible on a phone viewport in dark and light modes', async ({

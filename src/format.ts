@@ -71,8 +71,9 @@ export function clampContextPercentage(percentage: number): number {
 }
 
 export function contextSeverity(percentage: number): ContextSeverity {
-  if (percentage >= 90) return 'critical';
-  if (percentage >= 75) return 'warning';
+  const rounded = Math.round(clampContextPercentage(percentage));
+  if (rounded >= 90) return 'critical';
+  if (rounded >= 75) return 'warning';
   return 'normal';
 }
 

@@ -1,16 +1,14 @@
 .mrtu-card-strip {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 0.25rem;
-  min-inline-size: 0;
-  max-inline-size: 100%;
   block-size: 1.25rem;
   font-family: var(--tu-font-sans, inherit);
   font-size: 0.75rem;
   line-height: 1rem;
   color: inherit;
   white-space: nowrap;
-  overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
 .mrtu-cost {
@@ -34,7 +32,7 @@
 }
 .mrtu-model {
   min-inline-size: 0;
-  max-inline-size: 8.5rem;
+  max-inline-size: 12ch;
   overflow: hidden;
   text-overflow: ellipsis;
 }

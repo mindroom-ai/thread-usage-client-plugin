@@ -30,6 +30,19 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
       ? pct * (ctx.cacheReadTokens / ctx.inputTokens)
       : undefined;
   const uncachedPct = cachePct !== undefined ? Math.max(0, pct - cachePct) : pct;
+  const contextParts =
+    ctx && ctx.cacheReadTokens !== undefined && ctx.cacheReadTokens > 0
+      ? [
+          t('details.tokenKind.cacheRead', { value: formatCompactTokens(ctx.cacheReadTokens, locale) }),
+          ...(ctx.inputTokens > ctx.cacheReadTokens
+            ? [
+                t('details.tokenKind.newInput', {
+                  value: formatCompactTokens(ctx.inputTokens - ctx.cacheReadTokens, locale),
+                }),
+              ]
+            : []),
+        ]
+      : [];
 
   return (
     <div className="mrtu-details" data-thread-usage-details="" style={pluginRootStyle()}>
@@ -103,6 +116,11 @@ export function ThreadUsageDetails({ room, threadId }: ThreadDetailProps) {
               <span className={`mrtu-bar-uncached mrtu-bar-${severity}`} style={{ inlineSize: `${uncachedPct}%` }} />
             ) : null}
           </div>
+          {contextParts.length > 0 ? (
+            <span className="mrtu-detail-sub" data-usage-context-breakdown="">
+              {contextParts.join(' · ')}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

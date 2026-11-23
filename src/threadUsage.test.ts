@@ -127,9 +127,13 @@ describe('format helpers', () => {
     expect(clampContextPercentage(64)).toBe(64);
     expect(clampContextPercentage(125)).toBe(100);
     expect(contextSeverity(0)).toBe('normal');
-    expect(contextSeverity(74.9)).toBe('normal');
+    expect(contextSeverity(74.4)).toBe('normal');
+    expect(contextSeverity(74.5)).toBe('warning');
+    expect(contextSeverity(74.6)).toBe('warning');
     expect(contextSeverity(75)).toBe('warning');
-    expect(contextSeverity(89.9)).toBe('warning');
+    expect(contextSeverity(89.4)).toBe('warning');
+    expect(contextSeverity(89.5)).toBe('critical');
+    expect(contextSeverity(89.6)).toBe('critical');
     expect(contextSeverity(90)).toBe('critical');
     expect(contextSeverity(100)).toBe('critical');
   });
@@ -208,6 +212,12 @@ describe('summarizeThreadUsage', () => {
       }),
     ]);
     expect(summarizeThreadUsage(ignoredRoom, '$root', VIEWER, (id) => id === AGENT)).toBeUndefined();
+
+    // Signed-out client (getUserId() === null, getSafeUserId() throws) returns false cleanly.
+    const signedOutClient = createClient({ baseUrl: 'https://example.org' });
+    const signedOutRoom = new Room(ROOM_ID, signedOutClient, '');
+    expect(() => signedOutClient.getSafeUserId()).toThrow();
+    expect(threadHasUsage(signedOutRoom, '$root')).toBe(false);
   });
 
   it('sums micro-dollars + subagents, token breakdown, model recency, and latest clamped context', async () => {
