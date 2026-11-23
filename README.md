@@ -1,25 +1,64 @@
-# thread-usage-client-plugin
+# Thread Usage
 
-A standalone example [MindRoom Chat](https://github.com/mindroom-ai/mindroom-chat) client plugin that surfaces per-thread AI run telemetry (`io.mindroom.ai_run`) on Compact thread cards and thread details, with zero runtime dependencies beyond MindRoom Chat's shared packages and `@mindroom/client-sdk/*`.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/mindroom-ai/thread-usage-client-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/mindroom-ai/thread-usage-client-plugin/actions/workflows/ci.yml)
+[![Client SDK](https://img.shields.io/badge/MindRoom%20Chat%20SDK-66-blue)](https://github.com/mindroom-ai/mindroom-chat/blob/main/docs/client-plugins.md)
 
-## What it shows
+<picture>
+  <source media="(prefers-reduced-motion: no-preference)" srcset="https://raw.githubusercontent.com/mindroom-ai/mindroom/main/assets/logo/logo-mark-animated.svg" />
+  <img src="https://raw.githubusercontent.com/mindroom-ai/mindroom/main/assets/logo/logo-mark.svg" alt="MindRoom Logo" align="right" width="120" />
+</picture>
 
-- **Compact thread card (`threadCardBadges`)**: a quiet, non-interactive inline telemetry strip in the card's metadata row (condensed on phone viewports to cost and context fill so it fits beside avatars, reply count, and the touch menu button):
-  - Total thread cost (`$1.42`, or `≥ $0.08` when partial)
-  - Total tokens (`420k`, or `≥ 48k` when partial)
-  - Most recently used model plus additional distinct model count (`Opus 5.5` or `Opus 5.5 +1`)
-  - Latest context window fill as a micro progress ring + percentage (`64%`), tinted at warning (`≥ 75%`) and critical (`≥ 90%`) thresholds
-- **Thread details (`threadDetails`)**: read-only rows shown in the Compact card hover card, the thread actions menu, and the sidebar THREADS hover card:
-  - **Cost**: total spend, `+$X subagents` note when subagent spend is present, and `At least $X` when the sum is a lower bound
-  - **Tokens**: localized total plus compact breakdown (cache read, cache write, uncached/new input, output)
-  - **Models**: all distinct models used in the thread, most recent first
-  - **Context**: `128k / 200k · 64%` with a subtle 2-part progress bar and cached/new input breakdown line (`96k cached · 32k new`) when cached tokens are present
+A [MindRoom Chat](https://github.com/mindroom-ai/mindroom-chat) client plugin that shows per-thread AI **cost**, **tokens**, **models used**, and **context window fill** right on Compact thread cards and in thread details — with zero runtime dependencies and zero backend changes.
 
-Only messages from trusted MindRoom agents on the viewer's homeserver (and not ignored by the viewer) are counted.
+At a glance on every AI thread card: `$1.42 · 420k · Opus 5.5 +1 · ◔ 64%` (with the context ring shifting to amber at `≥ 75%` and red at `≥ 90%`). Hover a card, open its thread menu, or hover the sidebar thread row to see the full breakdown.
 
-## Configuration (`config.json`)
+## Screenshots
 
-Configure the plugin under `plugins["thread-usage"]` in MindRoom Chat's `config.json`. All card display toggles default to `true`:
+| Desktop (dark, with hover details)                                  | Desktop (light, with hover details)                                   |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![Desktop dark with hover details](docs/screenshots/hover-dark.png) | ![Desktop light with hover details](docs/screenshots/hover-light.png) |
+
+| Phone 390px (dark)                             | Phone 390px (light)                              |
+| ---------------------------------------------- | ------------------------------------------------ |
+| ![Phone dark](docs/screenshots/phone-dark.png) | ![Phone light](docs/screenshots/phone-light.png) |
+
+## Why it's useful
+
+- **Spot expensive threads before opening them:** Total spend (including subagents) and token volume sit quietly in the card's metadata row without extra pill clutter.
+- **See context pressure across a whole room:** A micro progress ring shows how full the latest reply's context window is, turning amber at `≥ 75%` and red at `≥ 90%` so you know which threads are nearing compaction.
+- **Know which models worked on a thread:** Shows the latest model plus `+N` when multiple models contributed, with the full list in thread details.
+- **Mobile-ready & unobtrusive:** On phone viewports, cards condense to cost and context fill (`≥ $1.42 · ◔ 64%`) so they fit cleanly beside avatars, reply counts, and the menu button. Human-only threads show nothing.
+- **Clean example plugin template:** Demonstrates `threadCardBadges`, `threadDetails`, `usePluginConfig`, `useScreenSize`, theme-safe styling across all 23 MindRoom Chat palettes, and live Matrix event subscriptions with zero runtime dependencies.
+
+## Quick start
+
+### 1. Build MindRoom Chat with this plugin
+
+Clone this repository alongside [mindroom-chat](https://github.com/mindroom-ai/mindroom-chat), install it once, and pass its absolute path via `MINDROOM_CLIENT_PLUGINS`:
+
+```bash
+git clone https://github.com/mindroom-ai/thread-usage-client-plugin.git
+cd thread-usage-client-plugin
+npm ci
+
+cd /path/to/mindroom-chat
+MINDROOM_CLIENT_PLUGINS=/abs/path/to/thread-usage-client-plugin npx vite build
+```
+
+For Docker builds, copy the plugin into your build context and pass the build argument:
+
+```bash
+docker build -f docker/Dockerfile \
+  --build-arg MINDROOM_CLIENT_PLUGINS=/src/plugins/thread-usage-client-plugin \
+  -t mindroom-chat .
+```
+
+To bundle multiple plugins together, separate their paths with commas (for example, `pull-request-client-plugin` and `thread-usage-client-plugin`). Requires MindRoom Chat client SDK `66` or later.
+
+### 2. Configure in `config.json` (optional)
+
+Everything is enabled by default. To customize which segments appear on Compact cards — or turn the plugin off for a deployment — add a `plugins["thread-usage"]` block to MindRoom Chat's `config.json`:
 
 ```json
 {
@@ -35,34 +74,49 @@ Configure the plugin under `plugins["thread-usage"]` in MindRoom Chat's `config.
 }
 ```
 
-- Setting `enabled: false` disables both the card strip and thread details.
-- Toggling `showCost`, `showTokens`, `showModels`, or `showContext` hides the corresponding segment on the Compact card while keeping the full breakdown available in thread details.
+## Settings
 
-## Partial history and lower bounds (`≥`)
+| Setting       | Default | Description                                                               |
+| ------------- | ------- | ------------------------------------------------------------------------- |
+| `enabled`     | `true`  | Set to `false` to disable both the Compact card strip and thread details. |
+| `showCost`    | `true`  | Show total conversation cost on Compact cards.                            |
+| `showTokens`  | `true`  | Show compact total token count on Compact cards.                          |
+| `showModels`  | `true`  | Show the most recent model (and `+N` count) on Compact cards.             |
+| `showContext` | `true`  | Show the micro context-window ring and percentage on Compact cards.       |
 
-Threads in a room overview may not have every older page loaded in memory yet, and an agent reply that ended as `cancelled`, `error`, or `interrupted` may omit `cost.usd`.
+Toggling individual `show*` options hides them on the card while keeping the full breakdown available in thread details (hover card, thread menu, and sidebar hover card).
 
-- When full thread history back to the root is loaded (`thread.initialEventsFetched === true`, the oldest linked timeline begins at `thread.id`, and it has no backward pagination token) and every terminal reply has known cost, totals render as exact values.
-- Otherwise, cost renders with a lower-bound indicator (`≥ $0.08` on cards, `At least $0.08` in details), and partial-history token totals floor at their displayed compact precision (`≥ 48k`) so a lower bound never rounds up past what was actually counted.
-- Context window fill and latest model always reflect the latest agent reply that reported them.
+<details>
+<summary><b>How it works &amp; partial history (≥)</b></summary>
 
-## Development
+- **Data source:** Reads `io.mindroom.ai_run` (`version: 1`) metadata emitted by trusted MindRoom agents on the viewer's homeserver (skipping ignored users and redacted messages), including live streamed `m.replace` edits, server-bundled edits, encrypted-room decryptions, and bundled `thread.rootEvent` / `thread.replyToEvent` summaries on unopened threads.
+- **Exact vs. lower-bound totals:** Threads in a room overview may not have every older page loaded in memory yet, and a reply that ended as `cancelled`, `error`, or `interrupted` may omit `cost.usd`.
+  - When full thread history back to the root is loaded and every terminal reply has known cost, totals render as exact figures (`$1.42`, `420k`).
+  - Otherwise, cost and token totals render as lower bounds (`≥ $0.08` on cards, `At least $0.08` in details; `≥ 48k`), floored at the displayed precision so a lower bound never claims more than was counted.
+- **Context &amp; latest model:** Always reflect the latest agent reply that reported them, even on unopened threads.
+- **Low overhead:** All mounted cards in a room share a single multiplexed Matrix room/client event subscription, keeping listener counts bounded regardless of how many threads are visible.
 
-Link a MindRoom Chat checkout with installed `node_modules` at `.mindroom-chat` in this directory:
+</details>
+
+<details>
+<summary><b>Development, tests &amp; screenshots</b></summary>
+
+Link a local `mindroom-chat` checkout with installed `node_modules` at `.mindroom-chat`:
 
 ```bash
 ln -s /path/to/mindroom-chat .mindroom-chat
 ```
 
-### Typecheck & lint (from this repository)
+Typecheck, strict check, lint, and formatting (from this repository):
 
 ```bash
 npm run typecheck
 npm run strict
 npm run lint
+.mindroom-chat/node_modules/.bin/prettier --check src e2e README.md package.json tsconfig.json tsconfig.strict.json
 ```
 
-### Unit tests & production build (from `.mindroom-chat`)
+Unit tests and production build (from `.mindroom-chat`):
 
 ```bash
 MINDROOM_CLIENT_PLUGINS=/abs/path/to/thread-usage-client-plugin \
@@ -72,12 +126,13 @@ MINDROOM_CLIENT_PLUGINS=/abs/path/to/thread-usage-client-plugin \
   npx vite build
 ```
 
-### End-to-end tests (from `.mindroom-chat`)
+Playwright end-to-end tests and screenshot capture (from `.mindroom-chat`):
 
 ```bash
 E2E_PLUGIN_DIRS=/abs/path/to/thread-usage-client-plugin \
 MINDROOM_CLIENT_PLUGINS=/abs/path/to/thread-usage-client-plugin \
+MRTU_SHOTS=/abs/path/to/thread-usage-client-plugin/docs/screenshots \
   just e2e-slot 3 --preview npx playwright test --project=thread-usage-client-plugin
 ```
 
-Set `MRTU_SHOTS=/abs/path/to/dir` to save desktop/phone and light/dark screenshots during the E2E run.
+</details>
