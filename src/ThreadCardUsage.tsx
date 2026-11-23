@@ -5,17 +5,21 @@ import {
   usePluginTranslation,
   type ThreadCardBadgeProps,
 } from '@mindroom/client-sdk/core';
+import { useScreenSize } from '@mindroom/client-sdk/ui';
 import { contextSeverity, formatCompactTokens, formatCostUsd } from './format';
 import { pluginRootStyle } from './theme';
 import { PLUGIN_ID, readUsageConfig, useThreadUsage } from './threadUsage';
 
 const RING_RADIUS = 5.75;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const PHONE_MAX_SEGMENTS = 2;
+const PHONE_PRIORITY: Record<string, number> = { cost: 0, context: 1, tokens: 2, model: 3 };
 
 /** Quiet inline telemetry strip + micro context ring for Compact thread cards (Option B). */
 export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
   const summary = useThreadUsage(room, threadId);
   const config = readUsageConfig(usePluginConfig(PLUGIN_ID));
+  const isPhone = useScreenSize() === 'Mobile';
   const t = usePluginTranslation(PLUGIN_ID);
   const { i18n } = useTranslation();
   const locale = i18n.language || undefined;
@@ -88,9 +92,24 @@ export function ThreadCardUsage({ room, threadId }: ThreadCardBadgeProps) {
   }
   if (segments.length === 0) return null;
 
+  // On phones the metadata row leaves narrow space after avatars, reply count, and the touch menu
+  // button, so condense to at most two highest-signal segments (cost + context ring by default);
+  // full tokens and models remain one long-press away in threadDetails.
+  const shown =
+    isPhone && segments.length > PHONE_MAX_SEGMENTS
+      ? segments.filter(({ key }) =>
+          new Set(
+            [...segments]
+              .sort((a, b) => (PHONE_PRIORITY[a.key] ?? 9) - (PHONE_PRIORITY[b.key] ?? 9))
+              .slice(0, PHONE_MAX_SEGMENTS)
+              .map((seg) => seg.key)
+          ).has(key)
+        )
+      : segments;
+
   return (
     <span className="mrtu-card-strip" data-thread-usage-card="" style={pluginRootStyle()}>
-      {segments.map(({ key, node }, index) => (
+      {shown.map(({ key, node }, index) => (
         <Fragment key={key}>
           {index > 0 ? <span className="mrtu-dot" aria-hidden="true">·</span> : null}
           {node}

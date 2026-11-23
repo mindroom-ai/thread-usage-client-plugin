@@ -124,7 +124,7 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
     unmount();
 
     // Config toggles hide selected segments without affecting the rest.
-    const { container: toggled } = await renderPluginComponent(
+    const { container: toggled, unmount: unmountToggled } = await renderPluginComponent(
       <ThreadCardUsage room={room} threadId="$t1" />,
       {
         id: PLUGIN_ID,
@@ -134,6 +134,22 @@ describe('ThreadCardUsage, ThreadUsageDetails, and room event multiplexer', () =
       }
     );
     expect(toggled.querySelector('.mrtu-card-strip')?.textContent).toBe('$1.42·64%');
+    unmountToggled();
+
+    // On phones, condense to the two highest-signal segments (cost + context ring) so the strip fits.
+    const { container: phone, unmount: unmountPhone } = await renderPluginComponent(
+      <ThreadCardUsage room={room} threadId="$t1" />,
+      { id: PLUGIN_ID, plugin, client, screenSize: 'Mobile' }
+    );
+    expect(phone.querySelector('.mrtu-card-strip')?.textContent).toBe('$1.42·64%');
+    unmountPhone();
+
+    // When cost is toggled off on a phone, fall back to tokens + context.
+    const { container: phoneFallback } = await renderPluginComponent(
+      <ThreadCardUsage room={room} threadId="$t1" />,
+      { id: PLUGIN_ID, plugin, client, screenSize: 'Mobile', config: { showCost: false } }
+    );
+    expect(phoneFallback.querySelector('.mrtu-card-strip')?.textContent).toBe('420k·64%');
   });
 
   it('renders lower-bound prefixes on partial history and warning/critical context rings', async () => {

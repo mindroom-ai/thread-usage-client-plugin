@@ -4,7 +4,7 @@ A standalone example [MindRoom Chat](https://github.com/mindroom-ai/mindroom-cha
 
 ## What it shows
 
-- **Compact thread card (`threadCardBadges`)**: a quiet, non-interactive inline telemetry strip in the card's metadata row:
+- **Compact thread card (`threadCardBadges`)**: a quiet, non-interactive inline telemetry strip in the card's metadata row (condensed on phone viewports to cost and context fill so it fits beside avatars, reply count, and the touch menu button):
   - Total thread cost (`$1.42`, or `≥ $0.08` when partial)
   - Total tokens (`420k`, or `≥ 48k` when partial)
   - Most recently used model plus additional distinct model count (`Opus 5.5` or `Opus 5.5 +1`)
