@@ -33,6 +33,8 @@ At a glance on every AI thread card: `$1.42 · 420k · Opus 5.5 +1 · ◔ 64%` (
 
 ## Quick start
 
+Official [MindRoom Chat](https://github.com/mindroom-ai/mindroom-chat) builds (web, Mac, iOS, and Docker) **bundle this plugin by default**, so you do not need to install or build anything to use it. Use the steps below only for custom builds or local development.
+
 ### 1. Build MindRoom Chat with this plugin
 
 Clone this repository alongside [mindroom-chat](https://github.com/mindroom-ai/mindroom-chat), install it once, and pass its absolute path via `MINDROOM_CLIENT_PLUGINS`:
@@ -86,6 +88,8 @@ Everything is enabled by default. To customize which segments appear on Compact 
 
 Toggling individual `show*` options hides them on the card while keeping the full breakdown available in thread details (hover card, thread menu, and sidebar hover card).
 
+Users can also toggle the plugin per-account in **Settings → Plugins** (synced across web, Mac, and iOS), unless it is disabled deployment-wide via `config.json`.
+
 <details>
 <summary><b>How it works &amp; partial history (≥)</b></summary>
 
@@ -134,5 +138,7 @@ MINDROOM_CLIENT_PLUGINS=/abs/path/to/thread-usage-client-plugin \
 MRTU_SHOTS=/abs/path/to/thread-usage-client-plugin/docs/screenshots \
   just e2e-slot 3 --preview npx playwright test --project=thread-usage-client-plugin
 ```
+
+`MRTU_SHOTS` also outputs `desktop-light.png` and `desktop-dark.png` alongside the four committed `hover-*` and `phone-*` shots.
 
 </details>
