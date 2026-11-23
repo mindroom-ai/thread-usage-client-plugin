@@ -1,0 +1,4 @@
+{
+  "extends": "./.mindroom-chat/tsconfig.plugin.strict.json",
+  "include": ["src", "e2e"]
+}

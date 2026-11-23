@@ -1,0 +1,141 @@
+.mrtu-card-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: 1.25rem;
+  font-family: var(--tu-font-sans, inherit);
+  font-size: 0.72rem;
+  line-height: 1rem;
+  color: var(--tu-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.mrtu-cost {
+  flex: none;
+  color: var(--tu-fg);
+  font-weight: 500;
+}
+.mrtu-tokens,
+.mrtu-model-more {
+  flex: none;
+}
+.mrtu-model-group {
+  display: inline-flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+.mrtu-model {
+  min-inline-size: 0;
+  max-inline-size: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mrtu-model-more {
+  opacity: 0.85;
+  white-space: pre;
+}
+.mrtu-dot {
+  flex: none;
+  opacity: 0.55;
+  user-select: none;
+}
+.mrtu-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+.mrtu-ring {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  flex: none;
+  display: block;
+}
+.mrtu-ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--tu-fg) 16%, transparent);
+}
+.mrtu-ring-fill {
+  fill: none;
+  stroke: color-mix(in srgb, var(--tu-fg) 62%, var(--tu-surface));
+  stroke-linecap: round;
+}
+.mrtu-severity-warning {
+  color: color-mix(in srgb, var(--tu-warning) 68%, var(--tu-fg));
+  font-weight: 500;
+}
+.mrtu-severity-warning .mrtu-ring-fill {
+  stroke: var(--tu-warning);
+}
+.mrtu-severity-critical {
+  color: color-mix(in srgb, var(--tu-critical) 78%, var(--tu-fg));
+  font-weight: 600;
+}
+.mrtu-severity-critical .mrtu-ring-fill {
+  stroke: var(--tu-critical);
+}
+
+.mrtu-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+  font-family: var(--tu-font-sans, inherit);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--tu-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mrtu-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  min-inline-size: 0;
+}
+.mrtu-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.mrtu-detail-label {
+  flex: none;
+}
+.mrtu-detail-value {
+  min-inline-size: 0;
+  color: var(--tu-fg);
+  font-weight: 500;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.mrtu-detail-sub {
+  font-size: 0.6875rem;
+  line-height: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.mrtu-context-bar {
+  display: flex;
+  inline-size: 100%;
+  block-size: 0.25rem;
+  margin-block-start: 0.125rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tu-fg) 12%, transparent);
+}
+.mrtu-bar-cached {
+  block-size: 100%;
+  background: color-mix(in srgb, var(--tu-primary) 48%, var(--tu-surface));
+}
+.mrtu-bar-uncached {
+  block-size: 100%;
+  background: var(--tu-primary);
+}
+.mrtu-bar-warning {
+  background: var(--tu-warning);
+}
+.mrtu-bar-critical {
+  background: var(--tu-critical);
+}

@@ -1,0 +1,25 @@
+{
+  "name": "thread-usage-client-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An example MindRoom Chat client plugin showing per-thread AI cost, tokens, models, and context window usage on Compact thread cards and thread details.",
+  "license": "MIT",
+  "type": "module",
+  "mindroomClientPlugin": {
+    "id": "thread-usage",
+    "apiVersion": 66,
+    "entry": "./src/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "./.mindroom-chat/node_modules/.bin/tsc --noEmit -p tsconfig.json",
+    "strict": "./.mindroom-chat/node_modules/.bin/tsc --noEmit -p tsconfig.strict.json",
+    "lint": "./.mindroom-chat/node_modules/.bin/eslint --resolve-plugins-relative-to ./.mindroom-chat --ext .ts,.tsx src e2e"
+  },
+  "peerDependencies": {
+    "folds": "*",
+    "matrix-js-sdk": "*",
+    "react": "*",
+    "react-dom": "*",
+    "react-i18next": "*"
+  }
+}
