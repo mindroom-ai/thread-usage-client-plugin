@@ -168,7 +168,8 @@ const getAiRun = (content: Record<string, unknown>): Record<string, unknown> | u
 const getStreamStatus = (content: Record<string, unknown>): string | undefined => {
   for (const layer of contentLayers(content)) {
     const raw = layer[STREAM_STATUS_KEY];
-    const str = typeof raw === 'string' ? raw : isRecord(raw) ? raw.status ?? raw.state : undefined;
+    const str =
+      typeof raw === 'string' ? raw : isRecord(raw) ? (raw.status ?? raw.state) : undefined;
     if (typeof str === 'string' && str.length > 0) return str.toLowerCase();
   }
   return undefined;
@@ -227,10 +228,10 @@ const resolveReplyMetadata = (thread: Thread, ev: MatrixEvent, eventId: string) 
     return diff !== 0
       ? diff
       : (b.getId() ?? '') > (a.getId() ?? '')
-      ? 1
-      : (b.getId() ?? '') < (a.getId() ?? '')
-      ? -1
-      : 0;
+        ? 1
+        : (b.getId() ?? '') < (a.getId() ?? '')
+          ? -1
+          : 0;
   });
 
   // Borrow metadata only from older readable same-sender edits; fall back to own content when no readable edit exists.
