@@ -14,7 +14,7 @@
   "scripts": {
     "typecheck": "./.mindroom-chat/node_modules/.bin/tsc --noEmit -p tsconfig.json",
     "strict": "./.mindroom-chat/node_modules/.bin/tsc --noEmit -p tsconfig.strict.json",
-    "lint": "./.mindroom-chat/node_modules/.bin/eslint --resolve-plugins-relative-to ./.mindroom-chat --ext .ts,.tsx src e2e"
+    "lint": "./.mindroom-chat/node_modules/.bin/eslint src e2e"
   },
   "peerDependencies": {
     "folds": "*",
