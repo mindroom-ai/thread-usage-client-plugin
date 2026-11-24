@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/mindroom-ai/thread-usage-client-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/mindroom-ai/thread-usage-client-plugin/actions/workflows/ci.yml)
-[![Client SDK](https://img.shields.io/badge/MindRoom%20Chat%20SDK-66-blue)](https://github.com/mindroom-ai/mindroom-chat/blob/main/docs/client-plugins.md)
+[![Client SDK](https://img.shields.io/badge/MindRoom%20Chat%20SDK-67-blue)](https://github.com/mindroom-ai/mindroom-chat/blob/main/docs/client-plugins.md)
 
 <picture>
   <source media="(prefers-reduced-motion: no-preference)" srcset="https://raw.githubusercontent.com/mindroom-ai/mindroom/main/assets/logo/logo-mark-animated.svg" />
@@ -33,7 +33,7 @@ At a glance on every AI thread card: `$1.42 · 420k · Opus 5.5 +1 · ◔ 64%` (
 
 ## Quick start
 
-Official [MindRoom Chat](https://github.com/mindroom-ai/mindroom-chat) builds (web, Mac, iOS, and Docker) **bundle this plugin by default**, so you do not need to install or build anything to use it. Use the steps below only for custom builds or local development.
+Official [MindRoom Chat](https://github.com/mindroom-ai/mindroom-chat) builds (web, Mac, iOS, and Docker) bundle this plugin **off by default** (`defaultEnabled: false`), so you do not need to install or build anything — enable **Thread Usage** per-account in **Settings → Plugins** (synced across web, Mac, and iOS). Use the steps below only for custom builds or local development.
 
 ### 1. Build MindRoom Chat with this plugin
 
@@ -56,11 +56,11 @@ docker build -f docker/Dockerfile \
   -t mindroom-chat .
 ```
 
-To bundle multiple plugins together, separate their paths with commas (for example, `pull-request-client-plugin` and `thread-usage-client-plugin`). Requires MindRoom Chat client SDK `66` or later.
+To bundle multiple plugins together, separate their paths with commas (for example, `pull-request-client-plugin` and `thread-usage-client-plugin`). Requires MindRoom Chat client SDK `67` or later.
 
 ### 2. Configure in `config.json` (optional)
 
-Everything is enabled by default. To customize which segments appear on Compact cards — or turn the plugin off for a deployment — add a `plugins["thread-usage"]` block to MindRoom Chat's `config.json`:
+The plugin starts **off by default** per account (`defaultEnabled: false`), and users opt in via **Settings → Plugins** (synced across web, Mac, and iOS). Once enabled, all `show*` display segments default to `true`. To customize which segments appear on Compact cards — or hide the plugin deployment-wide (`"enabled": false`) — add a `plugins["thread-usage"]` block to MindRoom Chat's `config.json`:
 
 ```json
 {
@@ -78,17 +78,19 @@ Everything is enabled by default. To customize which segments appear on Compact 
 
 ## Settings
 
-| Setting       | Default | Description                                                               |
-| ------------- | ------- | ------------------------------------------------------------------------- |
-| `enabled`     | `true`  | Set to `false` to disable both the Compact card strip and thread details. |
-| `showCost`    | `true`  | Show total conversation cost on Compact cards.                            |
-| `showTokens`  | `true`  | Show compact total token count on Compact cards.                          |
-| `showModels`  | `true`  | Show the most recent model (and `+N` count) on Compact cards.             |
-| `showContext` | `true`  | Show the micro context-window ring and percentage on Compact cards.       |
+This plugin is bundled **off by default** (`defaultEnabled: false`). Users enable or disable **Thread Usage** per-account in **Settings → Plugins** (synced across web, Mac, and iOS). Once enabled, all `show*` display segments default to `true`.
+
+Deployment administrators can customize card segments or hide the plugin deployment-wide via `plugins["thread-usage"]` in `config.json`:
+
+| Setting       | Default | Description                                                                                                                                        |
+| ------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`     | `true`  | Set to `false` to hide the plugin deployment-wide (overrides per-account opt-in). `true` leaves it offered in Settings without opting accounts in. |
+| `showCost`    | `true`  | Show total conversation cost on Compact cards.                                                                                                     |
+| `showTokens`  | `true`  | Show compact total token count on Compact cards.                                                                                                   |
+| `showModels`  | `true`  | Show the most recent model (and `+N` count) on Compact cards.                                                                                      |
+| `showContext` | `true`  | Show the micro context-window ring and percentage on Compact cards.                                                                                |
 
 Toggling individual `show*` options hides them on the card while keeping the full breakdown available in thread details (hover card, thread menu, and sidebar hover card).
-
-Users can also toggle the plugin per-account in **Settings → Plugins** (synced across web, Mac, and iOS), unless it is disabled deployment-wide via `config.json`.
 
 <details>
 <summary><b>How it works &amp; partial history (≥)</b></summary>
