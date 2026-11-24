@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { loginWithPassword } from '@mindroom/e2e/auth';
+import { chooseFromAccountMenu, loginWithPassword } from '@mindroom/e2e/auth';
 import { createRoom } from '@mindroom/e2e/createRoom';
 import {
   DISPOSABLE_HOMESERVER as HOMESERVER,
@@ -95,6 +95,21 @@ const openCompactRoom = async (page: Page, data: Seed) => {
   await page.goto(`/home/${encodeURIComponent(data.roomId)}/`);
   await setRoomCompact(page, true);
   await expect(card(page, data.devRoot)).toBeVisible({ timeout: 60_000 });
+};
+
+const enableThreadUsagePlugin = async (page: Page) => {
+  await chooseFromAccountMenu(page, 'Settings');
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await dialog
+    .getByRole('navigation', { name: 'Settings' })
+    .getByRole('button', { name: 'Plugins', exact: true })
+    .click();
+  const toggle = dialog.getByRole('switch', { name: 'Thread Usage', exact: true });
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 };
 
 test.beforeAll(async () => {
@@ -227,6 +242,13 @@ test('shows quiet inline usage strips, warning context ring, and hover details i
 }) => {
   const data = seeded!;
   await openCompactRoom(page, data);
+  await expect(card(page, data.warningRoot)).toBeVisible({ timeout: 30_000 });
+
+  // Off by default (defaultEnabled: false): no usage strips until enabled in Settings -> Plugins.
+  await expect(usageStrip(page, data.devRoot)).toHaveCount(0);
+  await expect(usageStrip(page, data.warningRoot)).toHaveCount(0);
+
+  await enableThreadUsagePlugin(page);
 
   const devStrip = usageStrip(page, data.devRoot);
   await expect(devStrip).toBeVisible({ timeout: 30_000 });

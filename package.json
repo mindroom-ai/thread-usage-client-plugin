@@ -7,7 +7,8 @@
   "type": "module",
   "mindroomClientPlugin": {
     "id": "thread-usage",
-    "apiVersion": 66,
+    "apiVersion": 67,
+    "defaultEnabled": false,
     "entry": "./src/index.tsx"
   },
   "scripts": {
