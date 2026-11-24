@@ -97,6 +97,23 @@ const openCompactRoom = async (page: Page, data: Seed) => {
   await expect(card(page, data.devRoot)).toBeVisible({ timeout: 60_000 });
 };
 
+const ensureThreadUsageEnabled = async (user: DisposableUser) => {
+  const url = `${HOMESERVER}/_matrix/client/v3/user/${encodeURIComponent(
+    user.userId
+  )}/account_data/io.mindroom.settings`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${user.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ enabledPlugins: ['thread-usage'] }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to enable thread-usage in account data: HTTP ${response.status}`);
+  }
+};
+
 const enableThreadUsagePlugin = async (page: Page) => {
   await chooseFromAccountMenu(page, 'Settings');
   const dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -339,6 +356,7 @@ test('keeps telemetry legible on a phone viewport in dark and light modes', asyn
   const context = await browser.newContext({ baseURL, ...PHONE_CONTEXT });
   const page = await context.newPage();
   try {
+    await ensureThreadUsageEnabled(data.person);
     await openCompactRoom(page, data);
     await expectStripInsideMetadata(page, data.devRoot);
     await expectStripInsideMetadata(page, data.warningRoot);

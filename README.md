@@ -82,13 +82,13 @@ This plugin is bundled **off by default** (`defaultEnabled: false`). Users enabl
 
 Deployment administrators can customize card segments or hide the plugin deployment-wide via `plugins["thread-usage"]` in `config.json`:
 
-| Setting       | Default | Description                                                                       |
-| ------------- | ------- | --------------------------------------------------------------------------------- |
-| `enabled`     | `true`  | Set to `false` to hide the plugin deployment-wide (overrides per-account opt-in). |
-| `showCost`    | `true`  | Show total conversation cost on Compact cards.                                    |
-| `showTokens`  | `true`  | Show compact total token count on Compact cards.                                  |
-| `showModels`  | `true`  | Show the most recent model (and `+N` count) on Compact cards.                     |
-| `showContext` | `true`  | Show the micro context-window ring and percentage on Compact cards.               |
+| Setting       | Default | Description                                                                                                                                        |
+| ------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`     | `true`  | Set to `false` to hide the plugin deployment-wide (overrides per-account opt-in). `true` leaves it offered in Settings without opting accounts in. |
+| `showCost`    | `true`  | Show total conversation cost on Compact cards.                                                                                                     |
+| `showTokens`  | `true`  | Show compact total token count on Compact cards.                                                                                                   |
+| `showModels`  | `true`  | Show the most recent model (and `+N` count) on Compact cards.                                                                                      |
+| `showContext` | `true`  | Show the micro context-window ring and percentage on Compact cards.                                                                                |
 
 Toggling individual `show*` options hides them on the card while keeping the full breakdown available in thread details (hover card, thread menu, and sidebar hover card).
 
